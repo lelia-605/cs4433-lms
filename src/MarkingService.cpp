@@ -11,6 +11,18 @@ bool isBlank(const std::string& s) {
 }
 }  // namespace
 
+MarkDetails buildMarkDetails(const Submission& s, const Assignment& a, const IPenaltyStrategy& penalty) {
+  MarkDetails d;
+  d.rawMark = s.rawMark.value_or(0);
+  d.maxMark = a.maxMark;
+  d.daysLate = s.daysLate;
+  d.finalMark = finalMark(d.rawMark, a.maxMark, s.daysLate, penalty);
+  d.penalty = d.rawMark - d.finalMark;  // what was actually taken off
+  d.feedback = s.feedback;
+  d.state = s.state;
+  return d;
+}
+
 Assignment MarkingService::lecturersAssignment(const User& lecturer, int assignmentId) const {
   if (!lecturer.can(Action::MarkSubmission)) throw AccessDenied("you are not allowed to do this");
   auto assignment = assignments_.findAssignment(assignmentId);
@@ -74,15 +86,7 @@ MarkDetails MarkingService::markDetails(const User& lecturer, int assignmentId, 
   const Assignment a = lecturersAssignment(lecturer, assignmentId);
   const Submission s = submissionOf(assignmentId, studentId);
   if (!s.rawMark) throw RuleViolation("not marked yet");
-  MarkDetails d;
-  d.rawMark = *s.rawMark;
-  d.maxMark = a.maxMark;
-  d.daysLate = s.daysLate;
-  d.finalMark = finalMark(d.rawMark, a.maxMark, s.daysLate, penalty_);
-  d.penalty = d.rawMark - d.finalMark;  // what was actually taken off
-  d.feedback = s.feedback;
-  d.state = s.state;
-  return d;
+  return buildMarkDetails(s, a, penalty_);
 }
 
 std::vector<AuditEntry> MarkingService::auditTrail(const User& viewer, int assignmentId,

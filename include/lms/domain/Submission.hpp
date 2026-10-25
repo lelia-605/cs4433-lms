@@ -42,6 +42,8 @@ struct Submission {
   std::optional<int> rawMark;  // the lecturer's mark before any late penalty (FR13)
   std::string feedback;
   std::optional<int> markedBy;
+  std::optional<int> moderatedBy;    // the HoD who approved or adjusted the mark (FR16, FR17)
+  std::optional<TimePoint> releasedAt;  // set when the HoD releases the mark (FR18)
 };
 
 // Every upload is kept as a numbered version (FR11).

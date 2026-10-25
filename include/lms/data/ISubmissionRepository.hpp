@@ -23,6 +23,14 @@ class ISubmissionRepository {
   virtual void saveMark(int submissionId, int rawMark, const std::string& feedback,
                         const AuditEntry& entry) = 0;
   virtual std::vector<AuditEntry> auditTrail(int submissionId) const = 0;
+  virtual std::optional<Submission> findById(int submissionId) const = 0;
+  // MARKED submissions on courses in this department, oldest first (FR16).
+  virtual std::vector<Submission> awaitingModeration(int departmentId) const = 0;
+  // Sets the (possibly adjusted) mark, the moderator and state MODERATED, and appends
+  // the audit entry, in one transaction (FR16, FR17).
+  virtual void saveModeration(int submissionId, int rawMark, const AuditEntry& entry) = 0;
+  // Moves every MODERATED submission of the assignment to RELEASED; returns how many (FR18).
+  virtual int releaseModerated(int assignmentId, TimePoint at) = 0;
 };
 
 }  // namespace lms
