@@ -111,4 +111,12 @@ std::vector<Course> SqliteCourseRepository::coursesForLecturer(int lecturerId) c
   return out;
 }
 
+std::vector<int> SqliteCourseRepository::enrolledStudents(int courseId) const {
+  auto st = db_.prepare("SELECT student_id FROM enrolment WHERE course_id = ? ORDER BY student_id");
+  st.bind(1, courseId);
+  std::vector<int> out;
+  while (st.step()) out.push_back(st.columnInt(0));
+  return out;
+}
+
 }  // namespace lms
