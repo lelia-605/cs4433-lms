@@ -80,4 +80,35 @@ bool SqliteCourseRepository::isEnrolled(int studentId, int courseId) const {
   return st.step();
 }
 
+namespace {
+Course readCourse(Statement& st) {
+  Course c;
+  c.id = st.columnInt(0);
+  c.code = st.columnText(1);
+  c.name = st.columnText(2);
+  c.departmentId = st.columnInt(3);
+  if (!st.columnIsNull(4)) c.lecturerId = st.columnInt(4);
+  return c;
+}
+}  // namespace
+
+std::vector<Course> SqliteCourseRepository::coursesForStudent(int studentId) const {
+  auto st = db_.prepare(
+      "SELECT c.course_id, c.code, c.name, c.department_id, c.lecturer_id FROM course c "
+      "JOIN enrolment e ON e.course_id = c.course_id WHERE e.student_id = ? ORDER BY c.code");
+  st.bind(1, studentId);
+  std::vector<Course> out;
+  while (st.step()) out.push_back(readCourse(st));
+  return out;
+}
+
+std::vector<Course> SqliteCourseRepository::coursesForLecturer(int lecturerId) const {
+  auto st = db_.prepare(
+      "SELECT course_id, code, name, department_id, lecturer_id FROM course WHERE lecturer_id = ? ORDER BY code");
+  st.bind(1, lecturerId);
+  std::vector<Course> out;
+  while (st.step()) out.push_back(readCourse(st));
+  return out;
+}
+
 }  // namespace lms

@@ -1,9 +1,9 @@
 #pragma once
 #include <chrono>
 
-namespace lms {
+#include "lms/domain/Time.hpp"
 
-using TimePoint = std::chrono::system_clock::time_point;
+namespace lms {
 
 // Days late = number of started 24-hour periods after the effective deadline (rule C4).
 //   at or before the deadline -> 0     1 second late -> 1
