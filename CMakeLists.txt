@@ -20,6 +20,7 @@ add_library(lms_core
   src/AssignmentService.cpp
   src/SqliteSubmissionRepository.cpp
   src/SubmissionService.cpp
+  src/MarkingService.cpp
   src/UserFactory.cpp
   src/LibsodiumHasher.cpp
   src/IPenaltyStrategy.cpp
@@ -40,7 +41,8 @@ FetchContent_Declare(googletest
 FetchContent_MakeAvailable(googletest)
 
 add_executable(lms_tests tests/test_penalty.cpp tests/test_users.cpp tests/test_admin.cpp tests/test_assignments.cpp
-  tests/test_submissions.cpp)
+  tests/test_submissions.cpp
+  tests/test_marking.cpp)
 target_link_libraries(lms_tests PRIVATE lms_core GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(lms_tests)

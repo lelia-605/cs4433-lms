@@ -1,4 +1,5 @@
 #pragma once
+#include <optional>
 #include <string>
 
 #include "lms/Errors.hpp"
@@ -30,7 +31,7 @@ inline SubmissionState stateFromString(const std::string& s) {
   throw RuleViolation("unknown submission state: " + s);
 }
 
-// One student's submission for one assignment. Marks are added in slice 4.
+// One student's submission for one assignment.
 struct Submission {
   int id = 0;
   int assignmentId = 0;
@@ -38,6 +39,9 @@ struct Submission {
   SubmissionState state = SubmissionState::Submitted;
   TimePoint submittedAt;  // time of the latest version
   int daysLate = 0;
+  std::optional<int> rawMark;  // the lecturer's mark before any late penalty (FR13)
+  std::string feedback;
+  std::optional<int> markedBy;
 };
 
 // Every upload is kept as a numbered version (FR11).

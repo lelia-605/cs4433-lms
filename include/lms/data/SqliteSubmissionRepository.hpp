@@ -11,6 +11,9 @@ class SqliteSubmissionRepository : public ISubmissionRepository {
   int recordVersion(const Submission& s, const std::string& content) override;
   std::vector<SubmissionVersion> versions(int submissionId) const override;
   std::vector<Submission> findByAssignment(int assignmentId) const override;
+  void saveMark(int submissionId, int rawMark, const std::string& feedback,
+                const AuditEntry& entry) override;
+  std::vector<AuditEntry> auditTrail(int submissionId) const override;
 
  private:
   int upsertSubmission(const Submission& s);
