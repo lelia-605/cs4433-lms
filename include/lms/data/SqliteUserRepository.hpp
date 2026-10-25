@@ -13,6 +13,7 @@ class SqliteUserRepository : public IUserRepository {
   void setActive(int id, bool active) override;
   void updateProfile(int id, const std::string& fullName, std::optional<int> departmentId) override;
   void setPasswordHash(int id, const std::string& hash) override;
+  std::vector<std::unique_ptr<User>> allUsers() const override;
 
  private:
   DatabaseConnection& db_;

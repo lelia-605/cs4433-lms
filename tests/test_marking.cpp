@@ -2,12 +2,15 @@
 
 #include "lms/data/DatabaseConnection.hpp"
 #include "lms/data/SqliteAssignmentRepository.hpp"
+#include "lms/data/SqliteAuditRepository.hpp"
 #include "lms/data/SqliteCourseRepository.hpp"
 #include "lms/data/SqliteSubmissionRepository.hpp"
 #include "lms/data/SqliteUserRepository.hpp"
 #include "lms/security/LibsodiumHasher.hpp"
 #include "lms/services/AdminService.hpp"
+#include "lms/services/AuditObserver.hpp"
 #include "lms/services/MarkingService.hpp"
+#include "lms/services/StatusObserver.hpp"
 #include "lms/services/SubmissionService.hpp"
 
 using namespace lms;
@@ -21,12 +24,15 @@ class MarkingFixture : public ::testing::Test {
   SqliteCourseRepository courses{db};
   SqliteAssignmentRepository assignmentsRepo{db};
   SqliteSubmissionRepository submissionsRepo{db};
+  SqliteAuditRepository auditRepo{db};
+  AuditObserver auditObserver{auditRepo};
+  StatusObserver statusObserver{submissionsRepo};
   AdminService admin{users, courses, hasher};
   FixedClock clock{fromIso("2026-10-20T08:00:00Z")};
   StandardPenaltyStrategy penalty;
   AssignmentService assignments{assignmentsRepo, courses, clock};
   SubmissionService submissions{submissionsRepo, assignmentsRepo, courses, assignments, clock};
-  MarkingService service{submissionsRepo, assignmentsRepo, courses, penalty, clock};
+  MarkingService service{submissionsRepo, assignmentsRepo, courses, auditRepo, db, penalty, clock};
   Administrator root{1000, "root", "x", "Root", true};
 
   const TimePoint deadline = fromIso("2026-11-01T10:00:00Z");
@@ -39,6 +45,8 @@ class MarkingFixture : public ::testing::Test {
 
   void SetUp() override {
     db.runScript(LMS_SCHEMA_PATH);
+    service.attach(auditObserver);
+    service.attach(statusObserver);
     const int science = admin.createDepartment(root, "Science");
     const int arts = admin.createDepartment(root, "Arts");
     const int course = admin.createCourse(root, "CS101", "Intro", science);
@@ -135,7 +143,7 @@ TEST_F(MarkingFixture, ExtensionMeansNoPenalty) {
   EXPECT_EQ(service.markDetails(*lee, essay, sam->id()).finalMark, 40);
 }
 
-// ---- FR14: changing a mark needs a reason ----
+// ---- BR6: changing a mark needs a reason ----
 TEST_F(MarkingFixture, ChangeMarkNeedsReasonAndUpdatesMark) {
   submitAt(*sam, deadline - hours(1));
   service.markSubmission(*lee, essay, sam->id(), 40, "ok");
@@ -163,7 +171,7 @@ TEST_F(MarkingFixture, StudentCannotResubmitAfterMarking) {
   EXPECT_THROW(submissions.submit(*sam, essay, "new version"), RuleViolation);
 }
 
-// ---- FR15, NFR11: every mark change is audited ----
+// ---- FR19, NFR11: every mark change is audited ----
 TEST_F(MarkingFixture, AuditTrailRecordsWhoWhenOldNewAndWhy) {
   submitAt(*sam, deadline - hours(1));
   clock.set(fromIso("2026-11-02T09:00:00Z"));
@@ -188,6 +196,7 @@ TEST_F(MarkingFixture, AuditTrailVisibility) {
   submitAt(*sam, deadline - hours(1));
   service.markSubmission(*lee, essay, sam->id(), 40, "ok");
   EXPECT_EQ(service.auditTrail(*hod, essay, sam->id()).size(), 1u);  // HoD of Science
+  EXPECT_EQ(service.auditTrail(root, essay, sam->id()).size(), 1u);  // administrator (FR20)
   EXPECT_THROW(service.auditTrail(*otherHod, essay, sam->id()), AccessDenied);  // HoD of Arts
   EXPECT_THROW(service.auditTrail(*otherLecturer, essay, sam->id()), AccessDenied);
   EXPECT_THROW(service.auditTrail(*sam, essay, sam->id()), AccessDenied);
@@ -197,7 +206,7 @@ TEST_F(MarkingFixture, MarkIsNotSavedIfAuditFails) {
   submitAt(*sam, deadline - hours(1));
   db.exec("CREATE TRIGGER block_audit BEFORE INSERT ON audit_log "
           "BEGIN SELECT RAISE(ABORT, 'simulated failure'); END;");
-  EXPECT_THROW(service.markSubmission(*lee, essay, sam->id(), 40, "ok"), RuleViolation);
+  EXPECT_THROW(service.markSubmission(*lee, essay, sam->id(), 40, "ok"), DatabaseError);
   auto s = submissionsRepo.find(essay, sam->id());
   EXPECT_FALSE(s->rawMark.has_value());  // rolled back together with the audit entry
   EXPECT_EQ(s->state, SubmissionState::Submitted);

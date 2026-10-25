@@ -33,6 +33,8 @@ class AssignmentService {
 
   std::vector<Course> coursesForStudent(const User& student) const;
   std::vector<AssignmentView> assignmentsForStudent(const User& student, int courseId) const;
+  std::vector<Course> coursesForLecturer(const User& lecturer) const;
+  std::vector<Assignment> assignmentsForLecturer(const User& lecturer, int courseId) const;
 
   static constexpr int kMaxMarkLimit = 1000;
 

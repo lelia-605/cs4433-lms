@@ -31,6 +31,8 @@ inline SubmissionState stateFromString(const std::string& s) {
   throw RuleViolation("unknown submission state: " + s);
 }
 
+class IPenaltyStrategy;
+
 // One student's submission for one assignment.
 struct Submission {
   int id = 0;
@@ -42,11 +44,19 @@ struct Submission {
   std::optional<int> rawMark;  // the lecturer's mark before any late penalty (FR13)
   std::string feedback;
   std::optional<int> markedBy;
-  std::optional<int> moderatedBy;    // the HoD who approved or adjusted the mark (FR16, FR17)
-  std::optional<TimePoint> releasedAt;  // set when the HoD releases the mark (FR18)
+  std::optional<int> moderatedBy;    // the HoD who approved or adjusted the mark (FR16)
+  std::optional<TimePoint> releasedAt;  // set when the HoD releases the mark (FR17)
+
+  // Life cycle (FR14): Submitted/Late -> Marked -> Moderated -> Released.
+  // Throws RuleViolation for any other move, so a state can never be skipped.
+  void transitionTo(SubmissionState next);
+  static bool canMove(SubmissionState from, SubmissionState to);
+
+  // Raw mark with the late penalty applied (FR11, FR12, BR1); 0 if not marked.
+  int finalMark(int maxMark, const IPenaltyStrategy& strategy) const;
 };
 
-// Every upload is kept as a numbered version (FR11).
+// Every upload is kept as a numbered version (FR10).
 struct SubmissionVersion {
   int versionNo = 0;
   std::string content;

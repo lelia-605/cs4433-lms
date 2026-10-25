@@ -42,7 +42,7 @@ class Administrator : public User {
   using User::User;
   Role role() const override { return Role::Administrator; }
   std::set<Action> allowedActions() const override {
-    return {Action::ManageUsers, Action::ManageCourses, Action::AssignAndEnrol};
+    return {Action::ManageUsers, Action::ManageCourses, Action::AssignAndEnrol, Action::ViewAuditLog};
   }
   std::string menuTitle() const override { return "Administrator menu"; }
 };
