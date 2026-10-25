@@ -9,6 +9,7 @@ class SqliteCourseRepository : public ICourseRepository {
   explicit SqliteCourseRepository(DatabaseConnection& db) : db_(db) {}
   int addDepartment(const std::string& name) override;
   std::optional<Department> findDepartment(int id) const override;
+  void renameDepartment(int id, const std::string& name) override;
   int addCourse(const Course& c) override;
   std::optional<Course> findCourse(int id) const override;
   void renameCourse(int id, const std::string& name) override;
@@ -18,6 +19,9 @@ class SqliteCourseRepository : public ICourseRepository {
   std::vector<Course> coursesForStudent(int studentId) const override;
   std::vector<Course> coursesForLecturer(int lecturerId) const override;
   std::vector<int> enrolledStudents(int courseId) const override;
+  std::vector<Department> allDepartments() const override;
+  std::vector<Course> allCourses() const override;
+  std::vector<Course> coursesInDepartment(int departmentId) const override;
 
  private:
   DatabaseConnection& db_;

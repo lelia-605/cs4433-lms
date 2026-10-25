@@ -72,7 +72,7 @@ TEST_F(SubmissionFixture, SubmittingExactlyAtTheDeadlineIsOnTime) {
   EXPECT_EQ(s.daysLate, 0);
 }
 
-// ---- FR10, BR3: late work is accepted and the days late are stored ----
+// ---- FR9, FR12: late work is accepted and the days late are stored ----
 TEST_F(SubmissionFixture, LateDaysBoundaryValues) {
   struct Case { seconds after; int days; };
   const Case cases[] = {{seconds(1), 1}, {hours(24), 1}, {hours(24) + seconds(1), 2},
@@ -112,7 +112,7 @@ TEST_F(SubmissionFixture, LatenessCountsFromTheExtendedDeadline) {
   EXPECT_EQ(s.daysLate, 1);
 }
 
-// ---- FR11: resubmission keeps every version ----
+// ---- FR10, BR3: resubmission keeps every version ----
 TEST_F(SubmissionFixture, ResubmissionKeepsAllVersions) {
   EXPECT_EQ(service.submit(*sam, essay, "draft one"), 1);
   clock.advance(hours(1));
@@ -182,7 +182,7 @@ TEST_F(SubmissionFixture, StudentSeesOnlyOwnSubmission) {
   EXPECT_TRUE(service.myVersions(*tom, essay).empty());
 }
 
-// ---- FR12: lecturer's status list ----
+// ---- FR21: lecturer's status list ----
 TEST_F(SubmissionFixture, LecturerSeesStatusOfEveryEnrolledStudent) {
   submitAt(*sam, deadline - hours(1), "v1");
   service.submit(*sam, essay, "v2");

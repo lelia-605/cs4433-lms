@@ -8,7 +8,7 @@
 
 namespace lms {
 
-// One row of the lecturer's submission list (FR12). Students who have not
+// One row of the lecturer's submission list (FR21). Students who have not
 // submitted yet are included with submitted = false.
 struct SubmissionStatus {
   int studentId = 0;
@@ -17,9 +17,9 @@ struct SubmissionStatus {
   int versionCount = 0;
 };
 
-// Submitting and resubmitting (FR9 to FR11) and the lecturer's status list (FR12).
-// Late work is always accepted (BR3); the days late are worked out from the
-// student's effective deadline, so an extension is taken into account (BR2).
+// Submitting (FR9), resubmitting before the deadline (FR10, BR3) and the lecturer's
+// status list (FR21). Late work is always accepted (FR9, FR12); the days late are worked
+// out from the student's effective deadline, so an extension is taken into account (BR2).
 class SubmissionService {
  public:
   SubmissionService(ISubmissionRepository& submissions, IAssignmentRepository& assignments,

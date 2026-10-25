@@ -93,59 +93,6 @@ std::vector<Submission> SqliteSubmissionRepository::findByAssignment(int assignm
   return out;
 }
 
-void SqliteSubmissionRepository::saveMark(int submissionId, int rawMark, const std::string& feedback,
-                                          const AuditEntry& entry) {
-  try {
-    Transaction tx(db_);  // the mark and its audit entry are saved together or not at all
-    auto st = db_.prepare(
-        "UPDATE submission SET raw_mark = ?, feedback = ?, marked_by = ?, state = 'MARKED' "
-        "WHERE submission_id = ?");
-    st.bind(1, rawMark);
-    st.bind(2, feedback);
-    st.bind(3, entry.changedBy);
-    st.bind(4, submissionId);
-    st.step();
-    if (db_.changes() == 0) throw NotFound("submission not found");
-    appendAudit(entry);
-    tx.commit();
-  } catch (const DatabaseError& e) {
-    throw RuleViolation(std::string("cannot save mark: ") + e.what());
-  }
-}
-
-std::vector<AuditEntry> SqliteSubmissionRepository::auditTrail(int submissionId) const {
-  auto st = db_.prepare(
-      "SELECT audit_id, submission_id, changed_by, changed_at, old_value, new_value, reason "
-      "FROM audit_log WHERE submission_id = ? ORDER BY audit_id");
-  st.bind(1, submissionId);
-  std::vector<AuditEntry> out;
-  while (st.step()) {
-    AuditEntry e;
-    e.id = st.columnInt(0);
-    e.submissionId = st.columnInt(1);
-    e.changedBy = st.columnInt(2);
-    e.changedAt = fromIso(st.columnText(3));
-    if (!st.columnIsNull(4)) e.oldValue = st.columnInt(4);
-    if (!st.columnIsNull(5)) e.newValue = st.columnInt(5);
-    e.reason = st.columnText(6);
-    out.push_back(e);
-  }
-  return out;
-}
-
-void SqliteSubmissionRepository::appendAudit(const AuditEntry& entry) {
-  auto log = db_.prepare(
-      "INSERT INTO audit_log (submission_id, changed_by, changed_at, old_value, new_value, reason) "
-      "VALUES (?, ?, ?, ?, ?, ?)");
-  log.bind(1, entry.submissionId);
-  log.bind(2, entry.changedBy);
-  log.bind(3, toIso(entry.changedAt));
-  if (entry.oldValue) log.bind(4, *entry.oldValue); else log.bindNull(4);
-  if (entry.newValue) log.bind(5, *entry.newValue); else log.bindNull(5);
-  log.bind(6, entry.reason);
-  log.step();
-}
-
 std::optional<Submission> SqliteSubmissionRepository::findById(int submissionId) const {
   auto st = db_.prepare(std::string(kSelectSubmission) + "WHERE submission_id = ?");
   st.bind(1, submissionId);
@@ -166,32 +113,48 @@ std::vector<Submission> SqliteSubmissionRepository::awaitingModeration(int depar
   return out;
 }
 
-void SqliteSubmissionRepository::saveModeration(int submissionId, int rawMark, const AuditEntry& entry) {
+
+// Constraint failures become RuleViolation, and "no row changed" becomes NotFound.
+void SqliteSubmissionRepository::runUpdate(Statement& st) {
   try {
-    Transaction tx(db_);  // the moderation and its audit entry are saved together or not at all
-    auto st = db_.prepare(
-        "UPDATE submission SET raw_mark = ?, moderated_by = ?, state = 'MODERATED' "
-        "WHERE submission_id = ? AND state = 'MARKED'");
-    st.bind(1, rawMark);
-    st.bind(2, entry.changedBy);
-    st.bind(3, submissionId);
     st.step();
-    if (db_.changes() == 0) throw NotFound("no marked submission with that id");
-    appendAudit(entry);
-    tx.commit();
   } catch (const DatabaseError& e) {
-    throw RuleViolation(std::string("cannot save moderation: ") + e.what());
+    throw RuleViolation(std::string("cannot save submission: ") + e.what());
   }
+  if (db_.changes() == 0) throw NotFound("submission not found");
 }
 
-int SqliteSubmissionRepository::releaseModerated(int assignmentId, TimePoint at) {
+void SqliteSubmissionRepository::saveMark(int submissionId, int rawMark, const std::string& feedback,
+                                          int markedBy) {
   auto st = db_.prepare(
-      "UPDATE submission SET state = 'RELEASED', released_at = ? "
-      "WHERE assignment_id = ? AND state = 'MODERATED'");
+      "UPDATE submission SET raw_mark = ?, feedback = ?, marked_by = ? WHERE submission_id = ?");
+  st.bind(1, rawMark);
+  st.bind(2, feedback);
+  st.bind(3, markedBy);
+  st.bind(4, submissionId);
+  runUpdate(st);
+}
+
+void SqliteSubmissionRepository::saveModeratedMark(int submissionId, int rawMark, int moderatedBy) {
+  auto st = db_.prepare("UPDATE submission SET raw_mark = ?, moderated_by = ? WHERE submission_id = ?");
+  st.bind(1, rawMark);
+  st.bind(2, moderatedBy);
+  st.bind(3, submissionId);
+  runUpdate(st);
+}
+
+void SqliteSubmissionRepository::setReleasedAt(int submissionId, TimePoint at) {
+  auto st = db_.prepare("UPDATE submission SET released_at = ? WHERE submission_id = ?");
   st.bind(1, toIso(at));
-  st.bind(2, assignmentId);
-  st.step();
-  return db_.changes();
+  st.bind(2, submissionId);
+  runUpdate(st);
+}
+
+void SqliteSubmissionRepository::setState(int submissionId, SubmissionState state) {
+  auto st = db_.prepare("UPDATE submission SET state = ? WHERE submission_id = ?");
+  st.bind(1, stateToString(state));
+  st.bind(2, submissionId);
+  runUpdate(st);
 }
 
 }  // namespace lms

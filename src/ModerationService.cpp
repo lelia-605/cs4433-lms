@@ -1,15 +1,8 @@
 #include "lms/services/ModerationService.hpp"
 
-#include <algorithm>
-#include <cctype>
+#include "lms/services/InputValidator.hpp"
 
 namespace lms {
-
-namespace {
-bool isBlank(const std::string& s) {
-  return std::all_of(s.begin(), s.end(), [](unsigned char c) { return std::isspace(c) != 0; });
-}
-}  // namespace
 
 const HeadOfDepartment& ModerationService::asHod(const User& user, Action action) const {
   const auto* hod = dynamic_cast<const HeadOfDepartment*>(&user);
@@ -36,38 +29,26 @@ Submission ModerationService::markedSubmission(const HeadOfDepartment& hod, int 
   return *s;
 }
 
-std::vector<ModerationItem> ModerationService::awaitingModeration(const User& user) const {
+std::vector<ModerationItem> ModerationService::listForModeration(const User& user) const {
   const HeadOfDepartment& hod = asHod(user, Action::ModerateMarks);
   std::vector<ModerationItem> out;
   for (const Submission& s : submissions_.awaitingModeration(hod.departmentId())) {
     auto a = assignments_.findAssignment(s.assignmentId);
-    if (a) out.push_back({s, *a, buildMarkDetails(s, *a, penalty_)});
+    if (!a) continue;
+    ModerationItem item{s, *a, buildMarkDetails(s, *a, penalty_), std::nullopt, std::nullopt};
+    if (auto course = courses_.findCourse(a->courseId)) item.lecturerId = course->lecturerId;
+    item.extension = assignments_.findExtension(a->id, s.studentId);
+    out.push_back(item);
   }
   return out;
 }
 
-void ModerationService::approve(const User& user, int submissionId) {
-  const HeadOfDepartment& hod = asHod(user, Action::ModerateMarks);
-  Assignment a;
-  const Submission s = markedSubmission(hod, submissionId, a);
-  AuditEntry entry;
-  entry.submissionId = s.id;
-  entry.changedBy = hod.id();
-  entry.changedAt = clock_.now();
-  entry.oldValue = s.rawMark;
-  entry.newValue = s.rawMark;  // unchanged: the log still shows who approved it and when
-  entry.reason = "approved in moderation";
-  submissions_.saveModeration(s.id, *s.rawMark, entry);
-}
-
-void ModerationService::adjust(const User& user, int submissionId, int newRawMark,
-                               const std::string& reason) {
-  const HeadOfDepartment& hod = asHod(user, Action::ModerateMarks);
-  Assignment a;
-  const Submission s = markedSubmission(hod, submissionId, a);
-  if (isBlank(reason)) throw RuleViolation("a reason is required to adjust a mark");
-  if (newRawMark < 0 || newRawMark > a.maxMark)
-    throw RuleViolation("the mark must be between 0 and " + std::to_string(a.maxMark));
+// Approve and adjust both end here: save the mark, then tell the observers, all in
+// one transaction (AuditObserver writes the entry, StatusObserver saves MODERATED).
+void ModerationService::moderate(const HeadOfDepartment& hod, Submission s, int newRawMark,
+                                 const std::string& reason) {
+  const SubmissionState before = s.state;
+  s.transitionTo(SubmissionState::Moderated);
   AuditEntry entry;
   entry.submissionId = s.id;
   entry.changedBy = hod.id();
@@ -75,13 +56,65 @@ void ModerationService::adjust(const User& user, int submissionId, int newRawMar
   entry.oldValue = s.rawMark;
   entry.newValue = newRawMark;
   entry.reason = reason;
-  submissions_.saveModeration(s.id, newRawMark, entry);
+  transactions_.runInTransaction([&] {
+    submissions_.saveModeratedMark(s.id, newRawMark, hod.id());
+    notifyMarkChanged(entry);
+    notifyStateChanged(s.id, before, s.state);
+  });
 }
 
-int ModerationService::release(const User& user, int assignmentId) {
+void ModerationService::approve(const User& user, int submissionId) {
+  const HeadOfDepartment& hod = asHod(user, Action::ModerateMarks);
+  Assignment a;
+  const Submission s = markedSubmission(hod, submissionId, a);
+  // The mark is unchanged, but the log still shows who approved it and when.
+  moderate(hod, s, *s.rawMark, "approved in moderation");
+}
+
+void ModerationService::adjustMark(const User& user, int submissionId, int newRawMark,
+                                   const std::string& reason) {
+  const HeadOfDepartment& hod = asHod(user, Action::ModerateMarks);
+  Assignment a;
+  const Submission s = markedSubmission(hod, submissionId, a);
+  if (InputValidator::isBlank(reason)) throw RuleViolation("a reason is required to adjust a mark");
+  InputValidator::requireRange(newRawMark, 0, a.maxMark, "the mark");
+  moderate(hod, s, newRawMark, reason);
+}
+
+int ModerationService::approveAll(const User& user, int assignmentId) {
+  const HeadOfDepartment& hod = asHod(user, Action::ModerateMarks);
+  departmentAssignment(hod, assignmentId);
+  int count = 0;
+  for (const Submission& s : submissions_.findByAssignment(assignmentId)) {
+    if (s.state != SubmissionState::Marked) continue;
+    moderate(hod, s, *s.rawMark, "approved in moderation (bulk)");  // one entry per submission
+    ++count;
+  }
+  return count;
+}
+
+int ModerationService::release(const User& user, int assignmentId, bool partial) {
   const HeadOfDepartment& hod = asHod(user, Action::ReleaseMarks);
   departmentAssignment(hod, assignmentId);
-  return submissions_.releaseModerated(assignmentId, clock_.now());
+  std::vector<Submission> ready;
+  std::string pending;
+  for (const Submission& s : submissions_.findByAssignment(assignmentId)) {
+    if (s.state == SubmissionState::Moderated) ready.push_back(s);
+    else if (s.state != SubmissionState::Released)
+      pending += (pending.empty() ? "" : ", ") + std::to_string(s.id);
+  }
+  if (!pending.empty() && !partial)
+    throw RuleViolation("not released: these submissions are not moderated yet: " + pending);
+  const TimePoint now = clock_.now();
+  transactions_.runInTransaction([&] {
+    for (Submission& s : ready) {
+      const SubmissionState before = s.state;
+      s.transitionTo(SubmissionState::Released);
+      submissions_.setReleasedAt(s.id, now);
+      notifyStateChanged(s.id, before, s.state);
+    }
+  });
+  return static_cast<int>(ready.size());
 }
 
 StudentResult ModerationService::resultFor(const User& student, int assignmentId) const {
@@ -97,6 +130,14 @@ StudentResult ModerationService::resultFor(const User& student, int assignmentId
   r.released = s->state == SubmissionState::Released;
   if (r.released) r.details = buildMarkDetails(*s, *a, penalty_);  // hidden until released (BR4)
   return r;
+}
+
+std::vector<Assignment> ModerationService::departmentAssignments(const User& user) const {
+  const HeadOfDepartment& hod = asHod(user, Action::ReleaseMarks);
+  std::vector<Assignment> out;
+  for (const Course& c : courses_.coursesInDepartment(hod.departmentId()))
+    for (const Assignment& a : assignments_.findByCourse(c.id)) out.push_back(a);
+  return out;
 }
 
 }  // namespace lms

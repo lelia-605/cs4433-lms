@@ -119,4 +119,36 @@ std::vector<int> SqliteCourseRepository::enrolledStudents(int courseId) const {
   return out;
 }
 
+std::vector<Department> SqliteCourseRepository::allDepartments() const {
+  auto st = db_.prepare("SELECT department_id, name FROM department ORDER BY department_id");
+  std::vector<Department> out;
+  while (st.step()) out.push_back({st.columnInt(0), st.columnText(1)});
+  return out;
+}
+
+std::vector<Course> SqliteCourseRepository::allCourses() const {
+  auto st = db_.prepare("SELECT course_id, code, name, department_id, lecturer_id FROM course ORDER BY code");
+  std::vector<Course> out;
+  while (st.step()) out.push_back(readCourse(st));
+  return out;
+}
+
+std::vector<Course> SqliteCourseRepository::coursesInDepartment(int departmentId) const {
+  auto st = db_.prepare(
+      "SELECT course_id, code, name, department_id, lecturer_id FROM course "
+      "WHERE department_id = ? ORDER BY code");
+  st.bind(1, departmentId);
+  std::vector<Course> out;
+  while (st.step()) out.push_back(readCourse(st));
+  return out;
+}
+
+void SqliteCourseRepository::renameDepartment(int id, const std::string& name) {
+  auto st = db_.prepare("UPDATE department SET name = ? WHERE department_id = ?");
+  st.bind(1, name);
+  st.bind(2, id);
+  runInsertOrUpdate(st, "cannot rename department (name already used?)");
+  if (db_.changes() == 0) throw NotFound("department not found");
+}
+
 }  // namespace lms

@@ -1,5 +1,7 @@
 #include "lms/services/AdminService.hpp"
 
+#include "lms/services/InputValidator.hpp"
+
 #include <algorithm>
 #include <cctype>
 
@@ -10,11 +12,7 @@ void AdminService::require(const User& actor, Action action) {
 }
 
 void AdminService::requireText(const std::string& value, const char* field, std::size_t maxLength) {
-  const bool blank = std::all_of(value.begin(), value.end(),
-                                 [](unsigned char c) { return std::isspace(c) != 0; });
-  if (blank) throw RuleViolation(std::string(field) + " must not be empty");
-  if (value.size() > maxLength)
-    throw RuleViolation(std::string(field) + " is too long (maximum " + std::to_string(maxLength) + ")");
+  InputValidator::requireText(value, field, maxLength);
 }
 
 void AdminService::requirePassword(const std::string& password) const {
@@ -100,6 +98,27 @@ void AdminService::enrolStudent(const User& actor, int studentId, int courseId) 
   if (student->role() != Role::Student) throw RuleViolation("only a student can be enrolled");
   if (!student->active()) throw RuleViolation("that student's account is deactivated");
   courses_.enrol(studentId, courseId);
+}
+
+std::vector<std::unique_ptr<User>> AdminService::listUsers(const User& actor) const {
+  require(actor, Action::ManageUsers);
+  return users_.allUsers();
+}
+
+std::vector<Department> AdminService::listDepartments(const User& actor) const {
+  require(actor, Action::ManageCourses);
+  return courses_.allDepartments();
+}
+
+std::vector<Course> AdminService::listCourses(const User& actor) const {
+  require(actor, Action::ManageCourses);
+  return courses_.allCourses();
+}
+
+void AdminService::renameDepartment(const User& actor, int departmentId, const std::string& name) {
+  require(actor, Action::ManageCourses);
+  requireText(name, "department name", 100);
+  courses_.renameDepartment(departmentId, name);
 }
 
 }  // namespace lms
