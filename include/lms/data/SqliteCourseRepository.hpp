@@ -15,6 +15,8 @@ class SqliteCourseRepository : public ICourseRepository {
   void setLecturer(int courseId, int lecturerId) override;
   void enrol(int studentId, int courseId) override;
   bool isEnrolled(int studentId, int courseId) const override;
+  std::vector<Course> coursesForStudent(int studentId) const override;
+  std::vector<Course> coursesForLecturer(int lecturerId) const override;
 
  private:
   DatabaseConnection& db_;

@@ -1,6 +1,7 @@
 #pragma once
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "lms/domain/Course.hpp"
 
@@ -18,6 +19,8 @@ class ICourseRepository {
   virtual void setLecturer(int courseId, int lecturerId) = 0;
   virtual void enrol(int studentId, int courseId) = 0;
   virtual bool isEnrolled(int studentId, int courseId) const = 0;
+  virtual std::vector<Course> coursesForStudent(int studentId) const = 0;
+  virtual std::vector<Course> coursesForLecturer(int lecturerId) const = 0;
 };
 
 }  // namespace lms
