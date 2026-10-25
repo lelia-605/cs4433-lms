@@ -14,9 +14,14 @@ class SqliteSubmissionRepository : public ISubmissionRepository {
   void saveMark(int submissionId, int rawMark, const std::string& feedback,
                 const AuditEntry& entry) override;
   std::vector<AuditEntry> auditTrail(int submissionId) const override;
+  std::optional<Submission> findById(int submissionId) const override;
+  std::vector<Submission> awaitingModeration(int departmentId) const override;
+  void saveModeration(int submissionId, int rawMark, const AuditEntry& entry) override;
+  int releaseModerated(int assignmentId, TimePoint at) override;
 
  private:
   int upsertSubmission(const Submission& s);
+  void appendAudit(const AuditEntry& entry);
   DatabaseConnection& db_;
 };
 

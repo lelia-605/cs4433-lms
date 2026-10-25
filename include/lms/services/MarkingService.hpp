@@ -22,6 +22,9 @@ struct MarkDetails {
   SubmissionState state = SubmissionState::Marked;
 };
 
+// Works out the penalty and final mark for a marked submission (used for every role's view).
+MarkDetails buildMarkDetails(const Submission& s, const Assignment& a, const IPenaltyStrategy& penalty);
+
 // Lecturer marking and feedback (FR13), mark changes with a reason (FR14) and the
 // audit trail of every mark change (FR15). Only the course's own lecturer can mark.
 class MarkingService {

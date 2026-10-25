@@ -5,7 +5,7 @@ namespace lms {
 namespace {
 const char* kSelectSubmission =
     "SELECT submission_id, assignment_id, student_id, state, submitted_at, days_late, "
-    "raw_mark, feedback, marked_by FROM submission ";
+    "raw_mark, feedback, marked_by, moderated_by, released_at FROM submission ";
 
 Submission readSubmission(Statement& st) {
   Submission s;
@@ -18,6 +18,8 @@ Submission readSubmission(Statement& st) {
   if (!st.columnIsNull(6)) s.rawMark = st.columnInt(6);
   s.feedback = st.columnText(7);
   if (!st.columnIsNull(8)) s.markedBy = st.columnInt(8);
+  if (!st.columnIsNull(9)) s.moderatedBy = st.columnInt(9);
+  if (!st.columnIsNull(10)) s.releasedAt = fromIso(st.columnText(10));
   return s;
 }
 }  // namespace
@@ -104,16 +106,7 @@ void SqliteSubmissionRepository::saveMark(int submissionId, int rawMark, const s
     st.bind(4, submissionId);
     st.step();
     if (db_.changes() == 0) throw NotFound("submission not found");
-    auto log = db_.prepare(
-        "INSERT INTO audit_log (submission_id, changed_by, changed_at, old_value, new_value, reason) "
-        "VALUES (?, ?, ?, ?, ?, ?)");
-    log.bind(1, submissionId);
-    log.bind(2, entry.changedBy);
-    log.bind(3, toIso(entry.changedAt));
-    if (entry.oldValue) log.bind(4, *entry.oldValue); else log.bindNull(4);
-    if (entry.newValue) log.bind(5, *entry.newValue); else log.bindNull(5);
-    log.bind(6, entry.reason);
-    log.step();
+    appendAudit(entry);
     tx.commit();
   } catch (const DatabaseError& e) {
     throw RuleViolation(std::string("cannot save mark: ") + e.what());
@@ -138,6 +131,67 @@ std::vector<AuditEntry> SqliteSubmissionRepository::auditTrail(int submissionId)
     out.push_back(e);
   }
   return out;
+}
+
+void SqliteSubmissionRepository::appendAudit(const AuditEntry& entry) {
+  auto log = db_.prepare(
+      "INSERT INTO audit_log (submission_id, changed_by, changed_at, old_value, new_value, reason) "
+      "VALUES (?, ?, ?, ?, ?, ?)");
+  log.bind(1, entry.submissionId);
+  log.bind(2, entry.changedBy);
+  log.bind(3, toIso(entry.changedAt));
+  if (entry.oldValue) log.bind(4, *entry.oldValue); else log.bindNull(4);
+  if (entry.newValue) log.bind(5, *entry.newValue); else log.bindNull(5);
+  log.bind(6, entry.reason);
+  log.step();
+}
+
+std::optional<Submission> SqliteSubmissionRepository::findById(int submissionId) const {
+  auto st = db_.prepare(std::string(kSelectSubmission) + "WHERE submission_id = ?");
+  st.bind(1, submissionId);
+  if (!st.step()) return std::nullopt;
+  return readSubmission(st);
+}
+
+std::vector<Submission> SqliteSubmissionRepository::awaitingModeration(int departmentId) const {
+  auto st = db_.prepare(
+      "SELECT s.submission_id, s.assignment_id, s.student_id, s.state, s.submitted_at, s.days_late, "
+      "s.raw_mark, s.feedback, s.marked_by, s.moderated_by, s.released_at FROM submission s "
+      "JOIN assignment a ON a.assignment_id = s.assignment_id "
+      "JOIN course c ON c.course_id = a.course_id "
+      "WHERE s.state = 'MARKED' AND c.department_id = ? ORDER BY s.submission_id");
+  st.bind(1, departmentId);
+  std::vector<Submission> out;
+  while (st.step()) out.push_back(readSubmission(st));
+  return out;
+}
+
+void SqliteSubmissionRepository::saveModeration(int submissionId, int rawMark, const AuditEntry& entry) {
+  try {
+    Transaction tx(db_);  // the moderation and its audit entry are saved together or not at all
+    auto st = db_.prepare(
+        "UPDATE submission SET raw_mark = ?, moderated_by = ?, state = 'MODERATED' "
+        "WHERE submission_id = ? AND state = 'MARKED'");
+    st.bind(1, rawMark);
+    st.bind(2, entry.changedBy);
+    st.bind(3, submissionId);
+    st.step();
+    if (db_.changes() == 0) throw NotFound("no marked submission with that id");
+    appendAudit(entry);
+    tx.commit();
+  } catch (const DatabaseError& e) {
+    throw RuleViolation(std::string("cannot save moderation: ") + e.what());
+  }
+}
+
+int SqliteSubmissionRepository::releaseModerated(int assignmentId, TimePoint at) {
+  auto st = db_.prepare(
+      "UPDATE submission SET state = 'RELEASED', released_at = ? "
+      "WHERE assignment_id = ? AND state = 'MODERATED'");
+  st.bind(1, toIso(at));
+  st.bind(2, assignmentId);
+  st.step();
+  return db_.changes();
 }
 
 }  // namespace lms
