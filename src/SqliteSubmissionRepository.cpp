@@ -4,7 +4,8 @@ namespace lms {
 
 namespace {
 const char* kSelectSubmission =
-    "SELECT submission_id, assignment_id, student_id, state, submitted_at, days_late FROM submission ";
+    "SELECT submission_id, assignment_id, student_id, state, submitted_at, days_late, "
+    "raw_mark, feedback, marked_by FROM submission ";
 
 Submission readSubmission(Statement& st) {
   Submission s;
@@ -14,6 +15,9 @@ Submission readSubmission(Statement& st) {
   s.state = stateFromString(st.columnText(3));
   s.submittedAt = fromIso(st.columnText(4));
   s.daysLate = st.columnInt(5);
+  if (!st.columnIsNull(6)) s.rawMark = st.columnInt(6);
+  s.feedback = st.columnText(7);
+  if (!st.columnIsNull(8)) s.markedBy = st.columnInt(8);
   return s;
 }
 }  // namespace
@@ -84,6 +88,55 @@ std::vector<Submission> SqliteSubmissionRepository::findByAssignment(int assignm
   st.bind(1, assignmentId);
   std::vector<Submission> out;
   while (st.step()) out.push_back(readSubmission(st));
+  return out;
+}
+
+void SqliteSubmissionRepository::saveMark(int submissionId, int rawMark, const std::string& feedback,
+                                          const AuditEntry& entry) {
+  try {
+    Transaction tx(db_);  // the mark and its audit entry are saved together or not at all
+    auto st = db_.prepare(
+        "UPDATE submission SET raw_mark = ?, feedback = ?, marked_by = ?, state = 'MARKED' "
+        "WHERE submission_id = ?");
+    st.bind(1, rawMark);
+    st.bind(2, feedback);
+    st.bind(3, entry.changedBy);
+    st.bind(4, submissionId);
+    st.step();
+    if (db_.changes() == 0) throw NotFound("submission not found");
+    auto log = db_.prepare(
+        "INSERT INTO audit_log (submission_id, changed_by, changed_at, old_value, new_value, reason) "
+        "VALUES (?, ?, ?, ?, ?, ?)");
+    log.bind(1, submissionId);
+    log.bind(2, entry.changedBy);
+    log.bind(3, toIso(entry.changedAt));
+    if (entry.oldValue) log.bind(4, *entry.oldValue); else log.bindNull(4);
+    if (entry.newValue) log.bind(5, *entry.newValue); else log.bindNull(5);
+    log.bind(6, entry.reason);
+    log.step();
+    tx.commit();
+  } catch (const DatabaseError& e) {
+    throw RuleViolation(std::string("cannot save mark: ") + e.what());
+  }
+}
+
+std::vector<AuditEntry> SqliteSubmissionRepository::auditTrail(int submissionId) const {
+  auto st = db_.prepare(
+      "SELECT audit_id, submission_id, changed_by, changed_at, old_value, new_value, reason "
+      "FROM audit_log WHERE submission_id = ? ORDER BY audit_id");
+  st.bind(1, submissionId);
+  std::vector<AuditEntry> out;
+  while (st.step()) {
+    AuditEntry e;
+    e.id = st.columnInt(0);
+    e.submissionId = st.columnInt(1);
+    e.changedBy = st.columnInt(2);
+    e.changedAt = fromIso(st.columnText(3));
+    if (!st.columnIsNull(4)) e.oldValue = st.columnInt(4);
+    if (!st.columnIsNull(5)) e.newValue = st.columnInt(5);
+    e.reason = st.columnText(6);
+    out.push_back(e);
+  }
   return out;
 }
 
