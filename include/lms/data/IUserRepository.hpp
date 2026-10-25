@@ -19,6 +19,10 @@ class IUserRepository {
   virtual ~IUserRepository() = default;
   virtual int add(const NewUser& u) = 0;
   virtual std::unique_ptr<User> findByUsername(const std::string& username) const = 0;
+  virtual std::unique_ptr<User> findById(int id) const = 0;
+  virtual void setActive(int id, bool active) = 0;
+  virtual void updateProfile(int id, const std::string& fullName, std::optional<int> departmentId) = 0;
+  virtual void setPasswordHash(int id, const std::string& hash) = 0;
 };
 
 }  // namespace lms

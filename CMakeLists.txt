@@ -13,6 +13,8 @@ pkg_check_modules(SODIUM REQUIRED IMPORTED_TARGET libsodium)
 add_library(lms_core
   src/DatabaseConnection.cpp
   src/SqliteUserRepository.cpp
+  src/SqliteCourseRepository.cpp
+  src/AdminService.cpp
   src/UserFactory.cpp
   src/LibsodiumHasher.cpp
   src/IPenaltyStrategy.cpp
@@ -32,7 +34,7 @@ FetchContent_Declare(googletest
   URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip)
 FetchContent_MakeAvailable(googletest)
 
-add_executable(lms_tests tests/test_penalty.cpp tests/test_users.cpp)
+add_executable(lms_tests tests/test_penalty.cpp tests/test_users.cpp tests/test_admin.cpp)
 target_link_libraries(lms_tests PRIVATE lms_core GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(lms_tests)

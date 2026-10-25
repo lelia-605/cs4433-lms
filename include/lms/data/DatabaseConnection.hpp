@@ -41,6 +41,7 @@ class DatabaseConnection {
   void runScript(const std::string& path);  // run a .sql file (schema.sql)
   Statement prepare(const std::string& sql);
   int lastInsertId() const;
+  int changes() const { return sqlite3_changes(db_); }  // rows changed by the last statement
 
  private:
   sqlite3* db_ = nullptr;
