@@ -2,6 +2,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "lms/domain/UserFactory.hpp"
 
@@ -23,6 +24,7 @@ class IUserRepository {
   virtual void setActive(int id, bool active) = 0;
   virtual void updateProfile(int id, const std::string& fullName, std::optional<int> departmentId) = 0;
   virtual void setPasswordHash(int id, const std::string& hash) = 0;
+  virtual std::vector<std::unique_ptr<User>> allUsers() const = 0;  // ordered by id
 };
 
 }  // namespace lms

@@ -85,4 +85,11 @@ void SqliteUserRepository::setPasswordHash(int id, const std::string& hash) {
   runUpdate(db_, st);
 }
 
+std::vector<std::unique_ptr<User>> SqliteUserRepository::allUsers() const {
+  auto st = db_.prepare(std::string(kSelectUser) + "ORDER BY user_id");
+  std::vector<std::unique_ptr<User>> out;
+  while (st.step()) out.push_back(readUser(st));
+  return out;
+}
+
 }  // namespace lms

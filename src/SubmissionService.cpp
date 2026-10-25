@@ -1,17 +1,10 @@
 #include "lms/services/SubmissionService.hpp"
 
-#include <algorithm>
-#include <cctype>
+#include "lms/services/InputValidator.hpp"
 
 #include "lms/services/LateDays.hpp"
 
 namespace lms {
-
-namespace {
-bool isBlank(const std::string& s) {
-  return std::all_of(s.begin(), s.end(), [](unsigned char c) { return std::isspace(c) != 0; });
-}
-}  // namespace
 
 Assignment SubmissionService::studentAssignment(const User& student, int assignmentId) const {
   if (!student.can(Action::SubmitAssignment)) throw AccessDenied("you are not allowed to do this");
@@ -24,7 +17,7 @@ Assignment SubmissionService::studentAssignment(const User& student, int assignm
 
 int SubmissionService::submit(const User& student, int assignmentId, const std::string& content) {
   studentAssignment(student, assignmentId);
-  if (isBlank(content)) throw RuleViolation("the submission must not be empty");
+  if (InputValidator::isBlank(content)) throw RuleViolation("the submission must not be empty");
   if (content.size() > kMaxContentLength)
     throw RuleViolation("the submission is too long (maximum " + std::to_string(kMaxContentLength) + ")");
 
@@ -32,7 +25,7 @@ int SubmissionService::submit(const User& student, int assignmentId, const std::
   const TimePoint deadline = assignmentService_.effectiveDeadline(assignmentId, student.id());
   auto existing = submissions_.find(assignmentId, student.id());
   if (existing) {
-    // A resubmission replaces the work only before the deadline and before marking (FR11).
+    // A resubmission replaces the work only before the deadline and before marking (FR10, BR3).
     const bool marked = existing->state != SubmissionState::Submitted &&
                         existing->state != SubmissionState::Late;
     if (marked) throw RuleViolation("this submission has already been marked");

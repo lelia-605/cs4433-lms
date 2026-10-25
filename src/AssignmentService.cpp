@@ -1,15 +1,8 @@
 #include "lms/services/AssignmentService.hpp"
 
-#include <algorithm>
-#include <cctype>
+#include "lms/services/InputValidator.hpp"
 
 namespace lms {
-
-namespace {
-bool isBlank(const std::string& s) {
-  return std::all_of(s.begin(), s.end(), [](unsigned char c) { return std::isspace(c) != 0; });
-}
-}  // namespace
 
 Course AssignmentService::ownedCourse(const User& lecturer, int courseId) const {
   auto course = courses_.findCourse(courseId);
@@ -22,7 +15,7 @@ int AssignmentService::createAssignment(const User& lecturer, int courseId, cons
                                         TimePoint deadline, int maxMark) {
   if (!lecturer.can(Action::CreateAssignment)) throw AccessDenied("you are not allowed to do this");
   ownedCourse(lecturer, courseId);
-  if (isBlank(title)) throw RuleViolation("title must not be empty");
+  if (InputValidator::isBlank(title)) throw RuleViolation("title must not be empty");
   if (title.size() > 200) throw RuleViolation("title is too long (maximum 200)");
   if (maxMark < 1 || maxMark > kMaxMarkLimit)
     throw RuleViolation("maximum mark must be between 1 and " + std::to_string(kMaxMarkLimit));
@@ -50,7 +43,7 @@ void AssignmentService::grantExtension(const User& lecturer, int assignmentId, i
   ownedCourse(lecturer, assignment->courseId);
   if (!courses_.isEnrolled(studentId, assignment->courseId))
     throw RuleViolation("that student is not enrolled in this course");
-  if (isBlank(reason)) throw RuleViolation("a reason is required");
+  if (InputValidator::isBlank(reason)) throw RuleViolation("a reason is required");
   if (newDeadline <= effectiveDeadline(assignmentId, studentId))
     throw RuleViolation("an extension must be later than the student's current deadline");
   if (newDeadline <= clock_.now()) throw RuleViolation("the extended deadline must be in the future");
@@ -78,6 +71,17 @@ std::vector<AssignmentView> AssignmentService::assignmentsForStudent(const User&
     out.push_back({a, ext ? ext->newDeadline : a.deadline, ext.has_value()});
   }
   return out;
+}
+
+std::vector<Course> AssignmentService::coursesForLecturer(const User& lecturer) const {
+  if (!lecturer.can(Action::CreateAssignment)) throw AccessDenied("you are not allowed to do this");
+  return courses_.coursesForLecturer(lecturer.id());
+}
+
+std::vector<Assignment> AssignmentService::assignmentsForLecturer(const User& lecturer, int courseId) const {
+  if (!lecturer.can(Action::CreateAssignment)) throw AccessDenied("you are not allowed to do this");
+  ownedCourse(lecturer, courseId);
+  return assignments_.findByCourse(courseId);
 }
 
 }  // namespace lms

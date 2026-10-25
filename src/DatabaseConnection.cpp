@@ -64,4 +64,16 @@ void DatabaseConnection::runScript(const std::string& path) {
 Statement DatabaseConnection::prepare(const std::string& sql) { return Statement(db_, sql); }
 int DatabaseConnection::lastInsertId() const { return static_cast<int>(sqlite3_last_insert_rowid(db_)); }
 
+bool DatabaseConnection::hasTable(const std::string& name) {
+  auto st = prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?");
+  st.bind(1, name);
+  return st.step();
+}
+
+void DatabaseConnection::runInTransaction(const std::function<void()>& work) {
+  Transaction tx(*this);  // rolls back if work() throws
+  work();
+  tx.commit();
+}
+
 }  // namespace lms

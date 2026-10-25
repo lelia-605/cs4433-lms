@@ -1,22 +1,15 @@
 #include "lms/services/MarkingService.hpp"
 
-#include <algorithm>
-#include <cctype>
+#include "lms/services/InputValidator.hpp"
 
 namespace lms {
-
-namespace {
-bool isBlank(const std::string& s) {
-  return std::all_of(s.begin(), s.end(), [](unsigned char c) { return std::isspace(c) != 0; });
-}
-}  // namespace
 
 MarkDetails buildMarkDetails(const Submission& s, const Assignment& a, const IPenaltyStrategy& penalty) {
   MarkDetails d;
   d.rawMark = s.rawMark.value_or(0);
   d.maxMark = a.maxMark;
   d.daysLate = s.daysLate;
-  d.finalMark = finalMark(d.rawMark, a.maxMark, s.daysLate, penalty);
+  d.finalMark = s.finalMark(a.maxMark, penalty);
   d.penalty = d.rawMark - d.finalMark;  // what was actually taken off
   d.feedback = s.feedback;
   d.state = s.state;
@@ -40,26 +33,37 @@ Submission MarkingService::submissionOf(int assignmentId, int studentId) const {
 
 void MarkingService::checkMarkAndFeedback(const Assignment& a, int rawMark,
                                           const std::string& feedback) const {
-  if (rawMark < 0 || rawMark > a.maxMark)
-    throw RuleViolation("the mark must be between 0 and " + std::to_string(a.maxMark));
-  if (isBlank(feedback)) throw RuleViolation("feedback is required");
-  if (feedback.size() > kMaxFeedbackLength)
-    throw RuleViolation("feedback is too long (maximum " + std::to_string(kMaxFeedbackLength) + ")");
+  InputValidator::requireRange(rawMark, 0, a.maxMark, "the mark");
+  if (InputValidator::isBlank(feedback)) throw RuleViolation("feedback is required");
+  InputValidator::requireText(feedback, "feedback", kMaxFeedbackLength);
+}
+
+AuditEntry MarkingService::changeEntry(const User& by, const Submission& s, int newValue,
+                                       const std::string& reason) const {
+  AuditEntry entry;
+  entry.submissionId = s.id;
+  entry.changedBy = by.id();
+  entry.changedAt = clock_.now();
+  entry.oldValue = s.rawMark;  // empty for the first marking
+  entry.newValue = newValue;
+  entry.reason = reason;
+  return entry;
 }
 
 void MarkingService::markSubmission(const User& lecturer, int assignmentId, int studentId,
                                     int rawMark, const std::string& feedback) {
   const Assignment a = lecturersAssignment(lecturer, assignmentId);
-  const Submission s = submissionOf(assignmentId, studentId);
+  Submission s = submissionOf(assignmentId, studentId);
   if (s.rawMark) throw RuleViolation("already marked: change the mark and give a reason instead");
   checkMarkAndFeedback(a, rawMark, feedback);
-  AuditEntry entry;
-  entry.submissionId = s.id;
-  entry.changedBy = lecturer.id();
-  entry.changedAt = clock_.now();
-  entry.newValue = rawMark;
-  entry.reason = "initial marking";
-  submissions_.saveMark(s.id, rawMark, feedback, entry);
+  const SubmissionState before = s.state;
+  s.transitionTo(SubmissionState::Marked);  // throws if the move is not allowed
+  const AuditEntry entry = changeEntry(lecturer, s, rawMark, "initial marking");
+  transactions_.runInTransaction([&] {
+    submissions_.saveMark(s.id, rawMark, feedback, lecturer.id());
+    notifyMarkChanged(entry);                    // AuditObserver writes the audit entry
+    notifyStateChanged(s.id, before, s.state);   // StatusObserver saves MARKED
+  });
 }
 
 void MarkingService::changeMark(const User& lecturer, int assignmentId, int studentId,
@@ -68,18 +72,15 @@ void MarkingService::changeMark(const User& lecturer, int assignmentId, int stud
   const Assignment a = lecturersAssignment(lecturer, assignmentId);
   const Submission s = submissionOf(assignmentId, studentId);
   if (!s.rawMark) throw RuleViolation("not marked yet: mark it first");
-  // After moderation only the Head of Department may change the mark (slice 5).
+  // After moderation only the Head of Department may change the mark (FR16).
   if (s.state != SubmissionState::Marked) throw RuleViolation("the mark has already been moderated");
-  if (isBlank(reason)) throw RuleViolation("a reason is required to change a mark");
+  if (InputValidator::isBlank(reason)) throw RuleViolation("a reason is required to change a mark");
   checkMarkAndFeedback(a, newRawMark, feedback);
-  AuditEntry entry;
-  entry.submissionId = s.id;
-  entry.changedBy = lecturer.id();
-  entry.changedAt = clock_.now();
-  entry.oldValue = s.rawMark;
-  entry.newValue = newRawMark;
-  entry.reason = reason;
-  submissions_.saveMark(s.id, newRawMark, feedback, entry);
+  const AuditEntry entry = changeEntry(lecturer, s, newRawMark, reason);
+  transactions_.runInTransaction([&] {
+    submissions_.saveMark(s.id, newRawMark, feedback, lecturer.id());
+    notifyMarkChanged(entry);
+  });
 }
 
 MarkDetails MarkingService::markDetails(const User& lecturer, int assignmentId, int studentId) const {
@@ -98,10 +99,12 @@ std::vector<AuditEntry> MarkingService::auditTrail(const User& viewer, int assig
   bool allowed = false;
   if (const auto* hod = dynamic_cast<const HeadOfDepartment*>(&viewer))
     allowed = hod->can(Action::ViewAuditLog) && hod->departmentId() == course->departmentId;
+  else if (viewer.role() == Role::Administrator)
+    allowed = viewer.can(Action::ViewAuditLog);  // FR20: any submission
   else
     allowed = viewer.can(Action::MarkSubmission) && course->lecturerId == viewer.id();
   if (!allowed) throw AccessDenied("you are not allowed to see this audit trail");
-  return submissions_.auditTrail(submissionOf(assignmentId, studentId).id);
+  return audit_.forSubmission(submissionOf(assignmentId, studentId).id);
 }
 
 }  // namespace lms

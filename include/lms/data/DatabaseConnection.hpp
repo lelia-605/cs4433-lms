@@ -4,6 +4,7 @@
 #include <string>
 
 #include "lms/Errors.hpp"
+#include "lms/data/ITransactionRunner.hpp"
 
 namespace lms {
 
@@ -30,10 +31,10 @@ class Statement {
 };
 
 // RAII wrapper over the SQLite handle (closed automatically, even after an exception).
-class DatabaseConnection {
+class DatabaseConnection : public ITransactionRunner {
  public:
   explicit DatabaseConnection(const std::string& path);  // ":memory:" for tests
-  ~DatabaseConnection();
+  ~DatabaseConnection() override;
   DatabaseConnection(const DatabaseConnection&) = delete;
   DatabaseConnection& operator=(const DatabaseConnection&) = delete;
 
@@ -41,6 +42,8 @@ class DatabaseConnection {
   void runScript(const std::string& path);  // run a .sql file (schema.sql)
   Statement prepare(const std::string& sql);
   int lastInsertId() const;
+  bool hasTable(const std::string& name);  // used on start-up to see if the schema exists
+  void runInTransaction(const std::function<void()>& work) override;
   int changes() const { return sqlite3_changes(db_); }  // rows changed by the last statement
 
  private:
