@@ -21,6 +21,7 @@ class ICourseRepository {
   virtual bool isEnrolled(int studentId, int courseId) const = 0;
   virtual std::vector<Course> coursesForStudent(int studentId) const = 0;
   virtual std::vector<Course> coursesForLecturer(int lecturerId) const = 0;
+  virtual std::vector<int> enrolledStudents(int courseId) const = 0;  // student ids, in id order
 };
 
 }  // namespace lms

@@ -41,7 +41,7 @@ std::string toIso(TimePoint tp) {
   if (rem < 0) { rem += 86400; --days; }
   long long y; unsigned m, d;
   civilFromDays(days, y, m, d);
-  char buf[32];
+  char buf[64];  // room for any year, so the compiler cannot warn about truncation
   std::snprintf(buf, sizeof buf, "%04lld-%02u-%02uT%02lld:%02lld:%02lldZ", y, m, d,
                 rem / 3600, (rem % 3600) / 60, rem % 60);
   return buf;
