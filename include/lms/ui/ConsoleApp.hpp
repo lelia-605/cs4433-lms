@@ -51,6 +51,8 @@ class ConsoleApp {
   void lecturerStatus(const User& u);
   void lecturerCreateAssignment(const User& u);
   void lecturerGrantExtension(const User& u);
+  void lecturerClassExtension(const User& u);
+  void reportRefresh(int changed);
   void lecturerMark(const User& u);
   void lecturerChangeMark(const User& u);
   void hodAwaiting(const User& u);
@@ -58,6 +60,7 @@ class ConsoleApp {
   void hodRelease(const User& u);
   void studentAssignments(const User& u);
   void studentResult(const User& u);
+  static std::string extensionNote(const AssignmentView& v);
   void showAudit(const User& u);
 
   LmsServices& s_;

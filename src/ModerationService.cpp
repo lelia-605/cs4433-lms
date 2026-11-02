@@ -35,7 +35,8 @@ std::vector<ModerationItem> ModerationService::listForModeration(const User& use
   for (const Submission& s : submissions_.awaitingModeration(hod.departmentId())) {
     auto a = assignments_.findAssignment(s.assignmentId);
     if (!a) continue;
-    ModerationItem item{s, *a, buildMarkDetails(s, *a, penalty_), std::nullopt, std::nullopt};
+    ModerationItem item{s, *a, buildMarkDetails(s, *a, penalty_), std::nullopt, std::nullopt,
+                        assignments_.findClassExtension(a->id)};
     if (auto course = courses_.findCourse(a->courseId)) item.lecturerId = course->lecturerId;
     item.extension = assignments_.findExtension(a->id, s.studentId);
     out.push_back(item);

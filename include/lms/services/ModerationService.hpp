@@ -15,6 +15,7 @@ struct ModerationItem {
   MarkDetails details;
   std::optional<int> lecturerId;
   std::optional<Extension> extension;
+  std::optional<ClassExtension> classExtension;  // CR1
 };
 
 // What a student sees for one assignment. Mark and feedback are only filled in

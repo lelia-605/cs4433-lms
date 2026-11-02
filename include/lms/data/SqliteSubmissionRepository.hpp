@@ -17,6 +17,7 @@ class SqliteSubmissionRepository : public ISubmissionRepository {
   void saveModeratedMark(int submissionId, int rawMark, int moderatedBy) override;
   void setReleasedAt(int submissionId, TimePoint at) override;
   void setState(int submissionId, SubmissionState state) override;
+  void updateLateness(int submissionId, int daysLate, SubmissionState state) override;
 
  private:
   int upsertSubmission(const Submission& s);

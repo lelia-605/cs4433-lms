@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(lms VERSION 1.0.0 LANGUAGES CXX)
+project(lms VERSION 1.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -59,7 +59,8 @@ add_executable(lms_tests tests/test_penalty.cpp tests/test_users.cpp tests/test_
   tests/test_moderation.cpp
   tests/test_console.cpp
   tests/test_design.cpp
-  tests/test_performance.cpp)
+  tests/test_performance.cpp
+  tests/test_cr1.cpp)
 target_link_libraries(lms_tests PRIVATE lms_core GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(lms_tests)

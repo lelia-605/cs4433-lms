@@ -14,6 +14,8 @@ class IAssignmentRepository {
   virtual std::vector<Assignment> findByCourse(int courseId) const = 0;
   virtual void saveExtension(const Extension& e) = 0;  // inserts, or replaces the student's earlier one
   virtual std::optional<Extension> findExtension(int assignmentId, int studentId) const = 0;
+  virtual void saveClassExtension(const ClassExtension& e) = 0;  // inserts or replaces (CR1)
+  virtual std::optional<ClassExtension> findClassExtension(int assignmentId) const = 0;
 };
 
 }  // namespace lms

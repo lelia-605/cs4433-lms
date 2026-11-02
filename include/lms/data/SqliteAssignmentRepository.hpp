@@ -12,6 +12,8 @@ class SqliteAssignmentRepository : public IAssignmentRepository {
   std::vector<Assignment> findByCourse(int courseId) const override;
   void saveExtension(const Extension& e) override;
   std::optional<Extension> findExtension(int assignmentId, int studentId) const override;
+  void saveClassExtension(const ClassExtension& e) override;
+  std::optional<ClassExtension> findClassExtension(int assignmentId) const override;
 
  private:
   DatabaseConnection& db_;

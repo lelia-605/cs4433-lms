@@ -9,15 +9,20 @@
 
 namespace lms {
 
+// Which extension, if any, sets a student's deadline (CR1: shown on the student's list).
+enum class ExtensionKind { None, Class, Individual };
+
 // What a student sees for one assignment: the deadline that applies to *them* (FR8).
+// assignment.deadline stays the original date, so both can be shown.
 struct AssignmentView {
   Assignment assignment;
   TimePoint effectiveDeadline;
   bool hasExtension = false;
+  ExtensionKind extensionKind = ExtensionKind::None;
 };
 
-// Assignments and individual extensions (FR6, FR7) and the student's course and
-// assignment lists (FR8). Lecturers can only work on courses they teach.
+// Assignments, individual extensions (FR6, FR7), class-wide extensions (CR1) and the
+// student's course and assignment lists (FR8). Lecturers can only work on courses they teach.
 class AssignmentService {
  public:
   AssignmentService(IAssignmentRepository& assignments, ICourseRepository& courses, const IClock& clock)
@@ -28,8 +33,17 @@ class AssignmentService {
   void grantExtension(const User& lecturer, int assignmentId, int studentId,
                       TimePoint newDeadline, const std::string& reason);
 
-  // The extension if the student has one, otherwise the assignment's own deadline (BR2).
+  // Extends the deadline for every student on the assignment (CR1). The new date must be
+  // later than the current class deadline and in the future; a reason is required.
+  void grantClassExtension(const User& lecturer, int assignmentId, TimePoint newDeadline,
+                           const std::string& reason);
+
+  // BR2 as changed by CR1: the latest of the assignment deadline, the class extension and
+  // the student's own extension, so no extension can make a student's deadline earlier.
   TimePoint effectiveDeadline(int assignmentId, int studentId) const;
+  ExtensionKind extensionKind(int assignmentId, int studentId) const;
+  // The deadline for the whole class: the class extension if there is one (CR1).
+  TimePoint classDeadline(int assignmentId) const;
 
   std::vector<Course> coursesForStudent(const User& student) const;
   std::vector<AssignmentView> assignmentsForStudent(const User& student, int courseId) const;

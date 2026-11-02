@@ -13,3 +13,4 @@ Second run (after fixes):
   0 findings
 
 The CI 'quality' job runs the same command with --error-exitcode=1, so a new finding fails the build.
+--- release v1.1: cppcheck run again: 0 findings; lizard: 0 functions over the limits (244 functions, average CCN 2.4)
