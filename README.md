@@ -2,6 +2,9 @@
 
 Offline C++17 console application with SQLite storage for a secondary school. Four roles (Administrator, Lecturer, Head of Department, Student), assignments and extensions, submissions with versions, marking with the late penalty, HoD moderation and release, and an append-only audit log. Release v1.1 adds class-wide deadline extensions (CR1). 117 automated tests.
 
+## Final report and demo
+The final report, all figures and the demo video link are in [`report/`](report/README.md).
+
 ## Requirements
 - A C++17 compiler (g++ 9+ or clang 10+), CMake 3.16+, pkg-config
 - SQLite 3 development files and libsodium development files
