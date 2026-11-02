@@ -156,39 +156,47 @@ void ConsoleApp::adminCreateUser(const User& u) {
   out_ << "User created with id " << id << ".\n";
 }
 
+void ConsoleApp::adminEditUser(const User& u) {
+  const int id = number("User id");
+  const std::string name = text("New full name");
+  s_.admin.editUser(u, id, name, optionalId(number("Department id (0 for none)")));
+  out_ << "User updated.\n";
+}
+
+void ConsoleApp::adminResetPassword(const User& u) {
+  const int id = number("User id");
+  s_.admin.resetPassword(u, id, text("New password (at least 8 characters)"));
+  out_ << "Password reset.\n";
+}
+
+void ConsoleApp::adminListCourses(const User& u) {
+  for (const auto& c : s_.admin.listCourses(u))
+    out_ << "  " << c.id << "  " << c.code << "  " << c.name << "  dept " << c.departmentId
+         << "  lecturer: " << (c.lecturerId ? nameOf(*c.lecturerId) : "none") << "\n";
+}
+
+void ConsoleApp::adminCreateCourse(const User& u) {
+  const std::string code = text("Course code");
+  const std::string name = text("Course name");
+  out_ << "Course created with id " << s_.admin.createCourse(u, code, name, number("Department id"))
+       << ".\n";
+}
+
 void ConsoleApp::adminMenu(const User& u) {
   runMenu("Administrator", {
     {"List users", [&] { adminListUsers(u); }},
     {"Create user", [&] { adminCreateUser(u); }},
-    {"Edit user", [&] {
-      const int id = number("User id");
-      const std::string name = text("New full name");
-      s_.admin.editUser(u, id, name, optionalId(number("Department id (0 for none)")));
-      out_ << "User updated.\n";
-    }},
+    {"Edit user", [&] { adminEditUser(u); }},
     {"Deactivate user", [&] { s_.admin.deactivateUser(u, number("User id")); out_ << "User deactivated.\n"; }},
-    {"Reset a password", [&] {
-      const int id = number("User id");
-      s_.admin.resetPassword(u, id, text("New password (at least 8 characters)"));
-      out_ << "Password reset.\n";
-    }},
+    {"Reset a password", [&] { adminResetPassword(u); }},
     {"List departments", [&] {
       for (const auto& d : s_.admin.listDepartments(u)) out_ << "  " << d.id << "  " << d.name << "\n";
     }},
     {"Create department", [&] {
       out_ << "Department created with id " << s_.admin.createDepartment(u, text("Name")) << ".\n";
     }},
-    {"List courses", [&] {
-      for (const auto& c : s_.admin.listCourses(u))
-        out_ << "  " << c.id << "  " << c.code << "  " << c.name << "  dept " << c.departmentId
-             << "  lecturer: " << (c.lecturerId ? nameOf(*c.lecturerId) : "none") << "\n";
-    }},
-    {"Create course", [&] {
-      const std::string code = text("Course code");
-      const std::string name = text("Course name");
-      out_ << "Course created with id " << s_.admin.createCourse(u, code, name, number("Department id"))
-           << ".\n";
-    }},
+    {"List courses", [&] { adminListCourses(u); }},
+    {"Create course", [&] { adminCreateCourse(u); }},
     {"Rename course", [&] {
       const int id = number("Course id");
       s_.admin.renameCourse(u, id, text("New name"));
@@ -245,6 +253,39 @@ void ConsoleApp::showAudit(const User& u) {
   }
 }
 
+void ConsoleApp::lecturerCreateAssignment(const User& u) {
+  const int course = number("Course id");
+  const std::string title = text("Title");
+  const TimePoint deadline = dateTime("Deadline");
+  const int id = s_.assignments.createAssignment(u, course, title, deadline, number("Maximum mark"));
+  out_ << "Assignment created with id " << id << ".\n";
+}
+
+void ConsoleApp::lecturerGrantExtension(const User& u) {
+  const int assignment = number("Assignment id");
+  const int student = number("Student user id");
+  const TimePoint until = dateTime("New deadline");
+  s_.assignments.grantExtension(u, assignment, student, until, text("Reason"));
+  out_ << "Extension granted.\n";
+}
+
+void ConsoleApp::lecturerMark(const User& u) {
+  const int assignment = number("Assignment id");
+  const int student = number("Student user id");
+  const int mark = number("Mark");
+  s_.marking.markSubmission(u, assignment, student, mark, text("Feedback"));
+  printMark(s_.marking.markDetails(u, assignment, student));
+}
+
+void ConsoleApp::lecturerChangeMark(const User& u) {
+  const int assignment = number("Assignment id");
+  const int student = number("Student user id");
+  const int mark = number("New mark");
+  const std::string feedback = text("Feedback");
+  s_.marking.changeMark(u, assignment, student, mark, feedback, text("Reason for the change"));
+  printMark(s_.marking.markDetails(u, assignment, student));
+}
+
 void ConsoleApp::lecturerMenu(const User& u) {
   runMenu("Lecturer", {
     {"My courses", [&] {
@@ -252,36 +293,11 @@ void ConsoleApp::lecturerMenu(const User& u) {
         out_ << "  " << c.id << "  " << c.code << "  " << c.name << "\n";
     }},
     {"Assignments in a course", [&] { lecturerListAssignments(u); }},
-    {"Create assignment", [&] {
-      const int course = number("Course id");
-      const std::string title = text("Title");
-      const TimePoint deadline = dateTime("Deadline");
-      const int id = s_.assignments.createAssignment(u, course, title, deadline, number("Maximum mark"));
-      out_ << "Assignment created with id " << id << ".\n";
-    }},
-    {"Grant an extension", [&] {
-      const int assignment = number("Assignment id");
-      const int student = number("Student user id");
-      const TimePoint until = dateTime("New deadline");
-      s_.assignments.grantExtension(u, assignment, student, until, text("Reason"));
-      out_ << "Extension granted.\n";
-    }},
+    {"Create assignment", [&] { lecturerCreateAssignment(u); }},
+    {"Grant an extension", [&] { lecturerGrantExtension(u); }},
     {"Submission status", [&] { lecturerStatus(u); }},
-    {"Mark a submission", [&] {
-      const int assignment = number("Assignment id");
-      const int student = number("Student user id");
-      const int mark = number("Mark");
-      s_.marking.markSubmission(u, assignment, student, mark, text("Feedback"));
-      printMark(s_.marking.markDetails(u, assignment, student));
-    }},
-    {"Change a mark", [&] {
-      const int assignment = number("Assignment id");
-      const int student = number("Student user id");
-      const int mark = number("New mark");
-      const std::string feedback = text("Feedback");
-      s_.marking.changeMark(u, assignment, student, mark, feedback, text("Reason for the change"));
-      printMark(s_.marking.markDetails(u, assignment, student));
-    }},
+    {"Mark a submission", [&] { lecturerMark(u); }},
+    {"Change a mark", [&] { lecturerChangeMark(u); }},
     {"View a mark", [&] {
       const int assignment = number("Assignment id");
       printMark(s_.marking.markDetails(u, assignment, number("Student user id")));

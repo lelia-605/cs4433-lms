@@ -135,8 +135,10 @@ StudentResult ModerationService::resultFor(const User& student, int assignmentId
 std::vector<Assignment> ModerationService::departmentAssignments(const User& user) const {
   const HeadOfDepartment& hod = asHod(user, Action::ReleaseMarks);
   std::vector<Assignment> out;
-  for (const Course& c : courses_.coursesInDepartment(hod.departmentId()))
-    for (const Assignment& a : assignments_.findByCourse(c.id)) out.push_back(a);
+  for (const Course& c : courses_.coursesInDepartment(hod.departmentId())) {
+    const std::vector<Assignment> forCourse = assignments_.findByCourse(c.id);
+    out.insert(out.end(), forCourse.begin(), forCourse.end());
+  }
   return out;
 }
 

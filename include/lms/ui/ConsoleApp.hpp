@@ -43,8 +43,16 @@ class ConsoleApp {
 
   void adminListUsers(const User& u);
   void adminCreateUser(const User& u);
+  void adminEditUser(const User& u);
+  void adminResetPassword(const User& u);
+  void adminListCourses(const User& u);
+  void adminCreateCourse(const User& u);
   void lecturerListAssignments(const User& u);
   void lecturerStatus(const User& u);
+  void lecturerCreateAssignment(const User& u);
+  void lecturerGrantExtension(const User& u);
+  void lecturerMark(const User& u);
+  void lecturerChangeMark(const User& u);
   void hodAwaiting(const User& u);
   void hodListAssignments(const User& u);
   void hodRelease(const User& u);

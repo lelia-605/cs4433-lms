@@ -36,6 +36,13 @@ target_link_libraries(lms_core PUBLIC SQLite::SQLite3 PkgConfig::SODIUM)
 target_compile_definitions(lms_core PUBLIC LMS_SCHEMA_PATH="${CMAKE_SOURCE_DIR}/schema.sql")
 target_compile_options(lms_core PUBLIC $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>)
 
+# Coverage build for the report (NFR10): cmake -DLMS_COVERAGE=ON, run the tests, then gcovr.
+option(LMS_COVERAGE "Build with line coverage (gcov)" OFF)
+if(LMS_COVERAGE)
+  target_compile_options(lms_core PUBLIC --coverage -O0 -g)
+  target_link_options(lms_core PUBLIC --coverage)
+endif()
+
 add_executable(lms src/main.cpp)
 target_link_libraries(lms PRIVATE lms_core)
 

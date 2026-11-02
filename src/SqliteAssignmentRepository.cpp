@@ -3,7 +3,7 @@
 namespace lms {
 
 namespace {
-Assignment readAssignment(Statement& st) {
+Assignment readAssignment(const Statement& st) {
   Assignment a;
   a.id = st.columnInt(0);
   a.courseId = st.columnInt(1);

@@ -2,3 +2,5 @@ build/
 *.db
 *.sqlite
 *.sqlite3
+build-cov/
+coverage*

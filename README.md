@@ -22,6 +22,15 @@ ctest --test-dir build --output-on-failure
 ```
 GoogleTest is downloaded automatically during the first configure (internet needed once).
 
+## Quality checks (as run by CI)
+```
+cppcheck --enable=warning,style,performance,portability --std=c++17 --language=c++ \
+  --suppress=missingIncludeSystem -I include src
+cmake -S . -B build-cov -DLMS_COVERAGE=ON && cmake --build build-cov --parallel
+ctest --test-dir build-cov && gcovr -r . build-cov --filter src/
+pip install lizard && lizard -C 10 -L 40 -w src include   # size and complexity limits
+```
+
 ## First start
 On the first run the app creates the database file and one administrator:
 username `admin`, password `admin12345`. Log in, create the departments, users and

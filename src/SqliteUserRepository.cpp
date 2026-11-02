@@ -8,7 +8,7 @@ const char* kSelectUser =
     "SELECT user_id, username, password_hash, full_name, role, is_active, department_id "
     "FROM app_user ";
 
-std::unique_ptr<User> readUser(Statement& st) {
+std::unique_ptr<User> readUser(const Statement& st) {
   UserData d;
   d.id = st.columnInt(0);
   d.username = st.columnText(1);
@@ -20,7 +20,7 @@ std::unique_ptr<User> readUser(Statement& st) {
 }
 
 // Runs an UPDATE and turns "no row changed" into NotFound and constraint errors into RuleViolation.
-void runUpdate(DatabaseConnection& db, Statement& st) {
+void runUpdate(const DatabaseConnection& db, Statement& st) {
   try {
     st.step();
   } catch (const DatabaseError& e) {
