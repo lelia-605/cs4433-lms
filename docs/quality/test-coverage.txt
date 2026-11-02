@@ -1,0 +1,56 @@
+Line coverage (gcovr 8.8), 103 tests, business-logic layer
+------------------------------------------------------------------------------
+                           GCC Code Coverage Report
+Directory: .
+------------------------------------------------------------------------------
+File                                         Lines     Exec  Cover   Missing
+------------------------------------------------------------------------------
+src/AdminService.cpp                            90       87    96%   113-115
+src/AssignmentService.cpp                       67       60    89%   76-78,81-84
+src/AuthService.cpp                              5        5   100%
+src/InputValidator.cpp                          24       24   100%
+src/IPenaltyStrategy.cpp                         7        7   100%
+src/MarkingService.cpp                          86       84    97%   17,51
+src/ModerationService.cpp                      118      108    91%   44,135-143
+src/Submission.cpp                              16       15    93%   18
+src/SubmissionService.cpp                       54       54   100%
+src/Time.cpp                                    40       40   100%
+src/UserFactory.cpp                             13       12    92%   18
+------------------------------------------------------------------------------
+TOTAL                                          520      496    95%
+------------------------------------------------------------------------------
+
+Branch coverage, business-logic layer
+TOTAL                                          646      572    88%
+------------------------------------------------------------------------------
+
+Line coverage, whole program (src/ except main.cpp)
+------------------------------------------------------------------------------
+                           GCC Code Coverage Report
+Directory: .
+------------------------------------------------------------------------------
+File                                         Lines     Exec  Cover   Missing
+------------------------------------------------------------------------------
+src/AdminService.cpp                            90       87    96%   113-115
+src/AssignmentService.cpp                       67       60    89%   76-78,81-84
+src/AuthService.cpp                              5        5   100%
+src/ConsoleApp.cpp                             322      178    55%   13-19,21,25-28,30,64-65,89,93-94,142-146,159-164,166-170,172-176,193-194,201-204,216-219,226-230,232-237,239-245,247-254,264-270,280-287,291-295,297-298,300-305,325-329,336-340,348-357,359,365-373,378,388-393,401-404
+src/DatabaseConnection.cpp                      59       54    91%   10,39-42
+src/DatabaseSetup.cpp                            8        8   100%
+src/InputValidator.cpp                          24       24   100%
+src/IPenaltyStrategy.cpp                         7        7   100%
+src/LibsodiumHasher.cpp                         10        9    90%   18
+src/MarkingService.cpp                          86       84    97%   17,51
+src/ModerationService.cpp                      118      108    91%   44,135-143
+src/SqliteAssignmentRepository.cpp              64       57    89%   14,26-28,62-64
+src/SqliteAuditRepository.cpp                   29       29   100%
+src/SqliteCourseRepository.cpp                 124      101    81%   92,105-112,129-134,136-137,139-144
+src/SqliteSubmissionRepository.cpp             121      117    96%   24,121-123
+src/SqliteUserRepository.cpp                    68       65    95%   26-28
+src/Submission.cpp                              16       15    93%   18
+src/SubmissionService.cpp                       54       54   100%
+src/Time.cpp                                    40       40   100%
+src/UserFactory.cpp                             13       12    92%   18
+------------------------------------------------------------------------------
+TOTAL                                         1325     1114    84%
+------------------------------------------------------------------------------

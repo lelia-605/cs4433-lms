@@ -1,0 +1,15 @@
+Static analysis: cppcheck 2.13.0, run on src/ with --enable=warning,style,performance,portability
+Date: 2026-11-01
+
+First run (before fixes): 6 findings, all severity 'style'; 0 errors, 0 warnings
+  src/ModerationService.cpp:139    useStlAlgorithm         raw loop copying assignments -> vector::insert
+  src/SqliteAssignmentRepository.cpp:6  constParameterReference  readAssignment(Statement&) -> const Statement&
+  src/SqliteCourseRepository.cpp:84     constParameterReference  readCourse(Statement&) -> const Statement&
+  src/SqliteSubmissionRepository.cpp:10 constParameterReference  readSubmission(Statement&) -> const Statement&
+  src/SqliteUserRepository.cpp:11       constParameterReference  readUser(Statement&) -> const Statement&
+  src/SqliteUserRepository.cpp:23       constParameterReference  runUpdate(DatabaseConnection&) -> const DatabaseConnection&
+
+Second run (after fixes):
+  0 findings
+
+The CI 'quality' job runs the same command with --error-exitcode=1, so a new finding fails the build.

@@ -13,3 +13,39 @@ jobs:
         run: cmake --build build --parallel
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+  # Phase 6 quality gate: static analysis and coverage (NFR10).
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies and tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsqlite3-dev libsodium-dev pkg-config cppcheck
+          pip install gcovr
+      - name: Static analysis (cppcheck)
+        run: |
+          cppcheck --enable=warning,style,performance,portability --std=c++17 --language=c++ \
+            --suppress=missingIncludeSystem --error-exitcode=1 -I include src
+      - name: Build with coverage
+        run: |
+          cmake -S . -B build-cov -DLMS_COVERAGE=ON
+          cmake --build build-cov --parallel
+      - name: Run tests
+        run: ctest --test-dir build-cov --output-on-failure
+      - name: Coverage of the business-logic layer (at least 70%)
+        run: |
+          gcovr -r . build-cov --exclude-throw-branches \
+            --filter 'src/(Admin|Assignment|Auth|Marking|Moderation|Submission)Service\.cpp' \
+            --filter 'src/(InputValidator|IPenaltyStrategy|Submission|UserFactory|Time)\.cpp' \
+            --fail-under-line 70 --txt coverage.txt --html-details coverage.html
+          cat coverage.txt
+      - name: Keep the coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.txt
+            coverage*.html
+            coverage*.css

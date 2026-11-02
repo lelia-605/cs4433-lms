@@ -81,7 +81,7 @@ bool SqliteCourseRepository::isEnrolled(int studentId, int courseId) const {
 }
 
 namespace {
-Course readCourse(Statement& st) {
+Course readCourse(const Statement& st) {
   Course c;
   c.id = st.columnInt(0);
   c.code = st.columnText(1);

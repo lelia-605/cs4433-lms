@@ -31,6 +31,8 @@ void civilFromDays(long long z, long long& y, unsigned& m, unsigned& d) {
   y += m <= 2;
 }
 
+bool inRange(int value, int low, int high) { return value >= low && value <= high; }
+
 }  // namespace
 
 std::string toIso(TimePoint tp) {
@@ -52,8 +54,9 @@ TimePoint fromIso(const std::string& text) {
   char tail = 0;
   if (std::sscanf(text.c_str(), "%d-%d-%dT%d:%d:%d%c", &y, &mo, &d, &h, &mi, &s, &tail) != 7 || tail != 'Z')
     throw RuleViolation("invalid date and time: " + text);
-  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h < 0 || h > 23 || mi < 0 || mi > 59 || s < 0 || s > 59)
-    throw RuleViolation("invalid date and time: " + text);
+  const bool fieldsOk = inRange(mo, 1, 12) && inRange(d, 1, 31) && inRange(h, 0, 23) &&
+                        inRange(mi, 0, 59) && inRange(s, 0, 59);
+  if (!fieldsOk) throw RuleViolation("invalid date and time: " + text);
   const long long days = daysFromCivil(y, static_cast<unsigned>(mo), static_cast<unsigned>(d));
   const TimePoint tp = TimePoint{} + std::chrono::seconds(days * 86400 + h * 3600 + mi * 60 + s);
   if (toIso(tp) != text) throw RuleViolation("invalid date and time: " + text);  // rejects e.g. 30 February

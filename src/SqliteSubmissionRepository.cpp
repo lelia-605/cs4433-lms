@@ -7,7 +7,7 @@ const char* kSelectSubmission =
     "SELECT submission_id, assignment_id, student_id, state, submitted_at, days_late, "
     "raw_mark, feedback, marked_by, moderated_by, released_at FROM submission ";
 
-Submission readSubmission(Statement& st) {
+Submission readSubmission(const Statement& st) {
   Submission s;
   s.id = st.columnInt(0);
   s.assignmentId = st.columnInt(1);

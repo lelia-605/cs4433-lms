@@ -1,6 +1,6 @@
 # Coding standard (CS4433 Moderated LMS)
 
-Applies to all C++ in `include/`, `src/` and `tests/`. Checked by code review, the compiler warnings and cppcheck/clang-tidy before each merge.
+Applies to all C++ in `include/`, `src/` and `tests/`. Checked by code review, the compiler warnings and the CI `quality` job (cppcheck, coverage) on every push. Function size and complexity are measured with lizard.
 
 ## Language and build
 - C++17 only (`CMAKE_CXX_EXTENSIONS OFF`). Build must give **zero warnings** with `-Wall -Wextra -Wpedantic`.
