@@ -1,0 +1,81 @@
+classDiagram
+    direction LR
+    class AssignmentService {
+      +createAssignment(lecturer, courseId, title, deadline, maxMark) int
+      +grantExtension(lecturer, assignmentId, studentId, newDeadline, reason)
+      +grantClassExtension(lecturer, assignmentId, newDeadline, reason)
+      +effectiveDeadline(assignmentId, studentId) TimePoint
+      +classDeadline(assignmentId) TimePoint
+      +extensionKind(assignmentId, studentId) ExtensionKind
+    }
+    class SubmissionService {
+      +submit(student, assignmentId, content) int
+      +statusForAssignment(lecturer, assignmentId)
+      +refreshLateness(lecturer, assignmentId) int
+      +latestVersion(lecturer, assignmentId, studentId)
+    }
+    class MarkingService {
+      +markSubmission(lecturer, assignmentId, studentId, rawMark, feedback)
+      +changeMark(lecturer, assignmentId, studentId, newRawMark, feedback, reason)
+      +markDetails(lecturer, assignmentId, studentId) MarkDetails
+      +auditTrail(viewer, assignmentId, studentId)
+    }
+    class ModerationService {
+      +listForModeration(hod)
+      +approve(hod, submissionId)
+      +adjustMark(hod, submissionId, newRawMark, reason)
+      +approveAll(hod, assignmentId) int
+      +release(hod, assignmentId, partial) int
+      +resultFor(student, assignmentId) StudentResult
+    }
+    class SubmissionSubject {
+      +attach(observer)
+      #notifyMarkChanged(entry)
+      #notifyStateChanged(id, from, to)
+    }
+    class ISubmissionObserver {
+      <<interface>>
+      +onMarkChanged(entry)
+      +onStateChanged(id, from, to)
+    }
+    class AuditObserver
+    class StatusObserver
+    class IPenaltyStrategy {
+      <<interface>>
+      +penaltyFor(maxMark, daysLate) int
+      +isZeroMark(daysLate) bool
+    }
+    class ITransactionRunner {
+      <<interface>>
+      +runInTransaction(work)
+    }
+    class IAssignmentRepository {
+      <<interface>>
+    }
+    class ISubmissionRepository {
+      <<interface>>
+    }
+    class IAuditRepository {
+      <<interface>>
+    }
+    class ClassExtension {
+      +assignmentId int
+      +newDeadline TimePoint
+      +grantedBy int
+      +reason string
+    }
+    SubmissionSubject <|-- MarkingService
+    SubmissionSubject <|-- ModerationService
+    SubmissionSubject o-- ISubmissionObserver : notifies
+    ISubmissionObserver <|.. AuditObserver
+    ISubmissionObserver <|.. StatusObserver
+    AuditObserver --> IAuditRepository
+    StatusObserver --> ISubmissionRepository
+    MarkingService --> IPenaltyStrategy
+    ModerationService --> IPenaltyStrategy
+    MarkingService --> ITransactionRunner
+    ModerationService --> ITransactionRunner
+    SubmissionService --> AssignmentService : effective deadline
+    AssignmentService --> IAssignmentRepository
+    IAssignmentRepository ..> ClassExtension : stores 0..1 per assignment
+    SubmissionService --> ISubmissionRepository

@@ -1,0 +1,37 @@
+sequenceDiagram
+    autonumber
+    actor HoD as Head of Department
+    participant UI as ConsoleApp
+    participant MS as ModerationService
+    participant SR as ISubmissionRepository
+    participant TX as ITransactionRunner
+    participant AO as AuditObserver
+    participant AR as IAuditRepository
+    participant SO as StatusObserver
+    HoD->>UI: 2 Approve a mark (submission id)
+    UI->>MS: approve(hod, submissionId)
+    MS->>SR: findById(submissionId)
+    SR-->>MS: Submission (state MARKED)
+    MS->>MS: check HoD role and department, then transitionTo(MODERATED)
+    MS->>TX: runInTransaction
+    activate TX
+    TX->>SR: saveModeratedMark(id, rawMark, hodId)
+    TX->>AO: onMarkChanged(entry: who, when, old, new, reason)
+    AO->>AR: append(entry)
+    TX->>SO: onStateChanged(id, MARKED, MODERATED)
+    SO->>SR: setState(id, MODERATED)
+    deactivate TX
+    Note over TX: any failure rolls back the mark, the audit entry and the state together
+    MS-->>UI: done
+    HoD->>UI: 6 Release marks (assignment id)
+    UI->>MS: release(hod, assignmentId)
+    MS->>SR: findByAssignment(assignmentId)
+    alt some submissions not moderated
+        MS-->>UI: RuleViolation lists pending submissions
+        UI->>HoD: Release only the moderated marks? (y/n)
+    else all moderated, or HoD answers y
+        MS->>TX: runInTransaction
+        TX->>SR: setReleasedAt(id, now) for each moderated submission
+        TX->>SO: onStateChanged(id, MODERATED, RELEASED)
+        MS-->>UI: number of marks released
+    end
