@@ -52,16 +52,20 @@ std::vector<SubmissionVersion> SubmissionService::myVersions(const User& student
   return submissions_.versions(s->id);
 }
 
-std::vector<SubmissionStatus> SubmissionService::statusForAssignment(const User& lecturer,
-                                                                     int assignmentId) const {
+Assignment SubmissionService::lecturersAssignment(const User& lecturer, int assignmentId) const {
   if (!lecturer.can(Action::ViewSubmissionStatus)) throw AccessDenied("you are not allowed to do this");
   auto assignment = assignments_.findAssignment(assignmentId);
   if (!assignment) throw NotFound("assignment not found");
   auto course = courses_.findCourse(assignment->courseId);
   if (!course || course->lecturerId != lecturer.id()) throw AccessDenied("you do not teach this course");
+  return *assignment;
+}
 
+std::vector<SubmissionStatus> SubmissionService::statusForAssignment(const User& lecturer,
+                                                                     int assignmentId) const {
+  const Assignment assignment = lecturersAssignment(lecturer, assignmentId);
   std::vector<SubmissionStatus> out;
-  for (int studentId : courses_.enrolledStudents(assignment->courseId)) {
+  for (int studentId : courses_.enrolledStudents(assignment.courseId)) {
     SubmissionStatus row;
     row.studentId = studentId;
     row.submission = submissions_.find(assignmentId, studentId);
@@ -70,6 +74,30 @@ std::vector<SubmissionStatus> SubmissionService::statusForAssignment(const User&
     out.push_back(row);
   }
   return out;
+}
+
+int SubmissionService::refreshLateness(const User& lecturer, int assignmentId) {
+  lecturersAssignment(lecturer, assignmentId);
+  int changed = 0;
+  for (Submission s : submissions_.findByAssignment(assignmentId)) {
+    if (s.state != SubmissionState::Submitted && s.state != SubmissionState::Late) continue;
+    const int days = daysLate(assignmentService_.effectiveDeadline(assignmentId, s.studentId), s.submittedAt);
+    if (days == s.daysLate) continue;
+    s.transitionTo(days > 0 ? SubmissionState::Late : SubmissionState::Submitted);
+    submissions_.updateLateness(s.id, days, s.state);
+    ++changed;
+  }
+  return changed;
+}
+
+std::optional<SubmissionVersion> SubmissionService::latestVersion(const User& lecturer, int assignmentId,
+                                                                  int studentId) const {
+  lecturersAssignment(lecturer, assignmentId);
+  auto s = submissions_.find(assignmentId, studentId);
+  if (!s) return std::nullopt;
+  const auto all = submissions_.versions(s->id);
+  if (all.empty()) return std::nullopt;
+  return all.back();
 }
 
 }  // namespace lms

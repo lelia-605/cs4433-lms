@@ -82,4 +82,37 @@ std::optional<Extension> SqliteAssignmentRepository::findExtension(int assignmen
   return e;
 }
 
+void SqliteAssignmentRepository::saveClassExtension(const ClassExtension& e) {
+  auto st = db_.prepare(
+      "INSERT INTO class_extension (assignment_id, new_deadline, granted_by, granted_at, reason) "
+      "VALUES (?, ?, ?, ?, ?) "
+      "ON CONFLICT(assignment_id) DO UPDATE SET new_deadline = excluded.new_deadline, "
+      "granted_by = excluded.granted_by, granted_at = excluded.granted_at, reason = excluded.reason");
+  st.bind(1, e.assignmentId);
+  st.bind(2, toIso(e.newDeadline));
+  st.bind(3, e.grantedBy);
+  st.bind(4, toIso(e.grantedAt));
+  st.bind(5, e.reason);
+  try {
+    st.step();
+  } catch (const DatabaseError& ex) {
+    throw RuleViolation(std::string("cannot save class extension: ") + ex.what());
+  }
+}
+
+std::optional<ClassExtension> SqliteAssignmentRepository::findClassExtension(int assignmentId) const {
+  auto st = db_.prepare(
+      "SELECT assignment_id, new_deadline, granted_by, granted_at, reason "
+      "FROM class_extension WHERE assignment_id = ?");
+  st.bind(1, assignmentId);
+  if (!st.step()) return std::nullopt;
+  ClassExtension e;
+  e.assignmentId = st.columnInt(0);
+  e.newDeadline = fromIso(st.columnText(1));
+  e.grantedBy = st.columnInt(2);
+  e.grantedAt = fromIso(st.columnText(3));
+  e.reason = st.columnText(4);
+  return e;
+}
+
 }  // namespace lms

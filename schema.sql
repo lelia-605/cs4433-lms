@@ -49,6 +49,15 @@ CREATE TABLE extension (
   UNIQUE (assignment_id, student_id)
 );
 
+-- CR1 (v1.1): one deadline extension for the whole class of an assignment
+CREATE TABLE class_extension (
+  assignment_id INTEGER PRIMARY KEY REFERENCES assignment(assignment_id),
+  new_deadline TEXT NOT NULL,
+  granted_by INTEGER NOT NULL REFERENCES app_user(user_id),
+  granted_at TEXT NOT NULL,
+  reason TEXT NOT NULL
+);
+
 CREATE TABLE submission (
   submission_id INTEGER PRIMARY KEY AUTOINCREMENT,
   assignment_id INTEGER NOT NULL REFERENCES assignment(assignment_id),

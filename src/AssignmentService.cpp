@@ -1,5 +1,7 @@
 #include "lms/services/AssignmentService.hpp"
 
+#include <algorithm>
+
 #include "lms/services/InputValidator.hpp"
 
 namespace lms {
@@ -28,11 +30,45 @@ int AssignmentService::createAssignment(const User& lecturer, int courseId, cons
   return assignments_.addAssignment(a);
 }
 
-TimePoint AssignmentService::effectiveDeadline(int assignmentId, int studentId) const {
+TimePoint AssignmentService::classDeadline(int assignmentId) const {
   auto assignment = assignments_.findAssignment(assignmentId);
   if (!assignment) throw NotFound("assignment not found");
-  auto extension = assignments_.findExtension(assignmentId, studentId);
-  return extension ? extension->newDeadline : assignment->deadline;
+  auto cls = assignments_.findClassExtension(assignmentId);
+  return cls ? std::max(cls->newDeadline, assignment->deadline) : assignment->deadline;
+}
+
+TimePoint AssignmentService::effectiveDeadline(int assignmentId, int studentId) const {
+  const TimePoint forClass = classDeadline(assignmentId);
+  auto own = assignments_.findExtension(assignmentId, studentId);
+  return own ? std::max(own->newDeadline, forClass) : forClass;
+}
+
+ExtensionKind AssignmentService::extensionKind(int assignmentId, int studentId) const {
+  auto assignment = assignments_.findAssignment(assignmentId);
+  if (!assignment) throw NotFound("assignment not found");
+  const TimePoint deadline = effectiveDeadline(assignmentId, studentId);
+  if (deadline == assignment->deadline) return ExtensionKind::None;
+  auto own = assignments_.findExtension(assignmentId, studentId);
+  return own && own->newDeadline == deadline ? ExtensionKind::Individual : ExtensionKind::Class;
+}
+
+void AssignmentService::grantClassExtension(const User& lecturer, int assignmentId,
+                                            TimePoint newDeadline, const std::string& reason) {
+  if (!lecturer.can(Action::GrantExtension)) throw AccessDenied("you are not allowed to do this");
+  auto assignment = assignments_.findAssignment(assignmentId);
+  if (!assignment) throw NotFound("assignment not found");
+  ownedCourse(lecturer, assignment->courseId);
+  if (InputValidator::isBlank(reason)) throw RuleViolation("a reason is required");
+  if (newDeadline <= classDeadline(assignmentId))
+    throw RuleViolation("a class extension must be later than the current class deadline");
+  if (newDeadline <= clock_.now()) throw RuleViolation("the extended deadline must be in the future");
+  ClassExtension e;
+  e.assignmentId = assignmentId;
+  e.newDeadline = newDeadline;
+  e.grantedBy = lecturer.id();
+  e.grantedAt = clock_.now();
+  e.reason = reason;
+  assignments_.saveClassExtension(e);
 }
 
 void AssignmentService::grantExtension(const User& lecturer, int assignmentId, int studentId,
@@ -67,8 +103,8 @@ std::vector<AssignmentView> AssignmentService::assignmentsForStudent(const User&
   if (!courses_.isEnrolled(student.id(), courseId)) throw AccessDenied("you are not enrolled in this course");
   std::vector<AssignmentView> out;
   for (const Assignment& a : assignments_.findByCourse(courseId)) {
-    auto ext = assignments_.findExtension(a.id, student.id());
-    out.push_back({a, ext ? ext->newDeadline : a.deadline, ext.has_value()});
+    const ExtensionKind kind = extensionKind(a.id, student.id());
+    out.push_back({a, effectiveDeadline(a.id, student.id()), kind != ExtensionKind::None, kind});
   }
   return out;
 }

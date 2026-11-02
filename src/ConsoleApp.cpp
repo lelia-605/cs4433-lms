@@ -224,9 +224,12 @@ void ConsoleApp::adminMenu(const User& u) {
 // ---------------------------------------------------------------- lecturer
 
 void ConsoleApp::lecturerListAssignments(const User& u) {
-  for (const auto& a : s_.assignments.assignmentsForLecturer(u, number("Course id")))
-    out_ << "  " << a.id << "  " << a.title << "  due " << shortTime(a.deadline) << "  out of "
-         << a.maxMark << "\n";
+  for (const auto& a : s_.assignments.assignmentsForLecturer(u, number("Course id"))) {
+    const TimePoint forClass = s_.assignments.classDeadline(a.id);
+    out_ << "  " << a.id << "  " << a.title << "  due " << shortTime(forClass);
+    if (forClass != a.deadline) out_ << " (class extension; original " << shortTime(a.deadline) << ")";
+    out_ << "  out of " << a.maxMark << "\n";
+  }
 }
 
 void ConsoleApp::lecturerStatus(const User& u) {
@@ -267,11 +270,27 @@ void ConsoleApp::lecturerGrantExtension(const User& u) {
   const TimePoint until = dateTime("New deadline");
   s_.assignments.grantExtension(u, assignment, student, until, text("Reason"));
   out_ << "Extension granted.\n";
+  reportRefresh(s_.submissions.refreshLateness(u, assignment));
+}
+
+void ConsoleApp::lecturerClassExtension(const User& u) {
+  const int assignment = number("Assignment id");
+  const TimePoint until = dateTime("New deadline for the whole class");
+  s_.assignments.grantClassExtension(u, assignment, until, text("Reason"));
+  out_ << "Deadline extended for the whole class.\n";
+  reportRefresh(s_.submissions.refreshLateness(u, assignment));
+}
+
+void ConsoleApp::reportRefresh(int changed) {
+  if (changed > 0) out_ << changed << " submission(s) already handed in now have their days late recalculated.\n";
 }
 
 void ConsoleApp::lecturerMark(const User& u) {
   const int assignment = number("Assignment id");
   const int student = number("Student user id");
+  if (auto work = s_.submissions.latestVersion(u, assignment, student))  // UC07 step 3
+    out_ << "  Submitted work (version " << work->versionNo << ", " << shortTime(work->submittedAt)
+         << "):\n    " << work->content << "\n";
   const int mark = number("Mark");
   s_.marking.markSubmission(u, assignment, student, mark, text("Feedback"));
   printMark(s_.marking.markDetails(u, assignment, student));
@@ -303,6 +322,7 @@ void ConsoleApp::lecturerMenu(const User& u) {
       printMark(s_.marking.markDetails(u, assignment, number("Student user id")));
     }},
     {"Audit trail for a submission", [&] { showAudit(u); }},
+    {"Extend the deadline for the whole class", [&] { lecturerClassExtension(u); }},
   });
 }
 
@@ -318,6 +338,7 @@ void ConsoleApp::hodAwaiting(const User& u) {
          << " day(s) late, penalty -" << item.details.penalty << ")\n"
          << "      marked by " << (item.lecturerId ? nameOf(*item.lecturerId) : "-")
          << (item.extension ? ", extension to " + shortTime(item.extension->newDeadline) : ", no extension")
+         << (item.classExtension ? ", class extension to " + shortTime(item.classExtension->newDeadline) : "")
          << "\n";
   }
 }
@@ -366,10 +387,20 @@ void ConsoleApp::studentAssignments(const User& u) {
   const int course = number("Course id");
   for (const auto& v : s_.assignments.assignmentsForStudent(u, course)) {
     out_ << "  " << v.assignment.id << "  " << v.assignment.title << "  due "
-         << shortTime(v.effectiveDeadline) << (v.hasExtension ? " (extended)" : "") << "  ";
+         << shortTime(v.effectiveDeadline) << extensionNote(v) << "  ";
     auto mine = s_.submissions.mySubmission(u, v.assignment.id);
     out_ << (mine ? "you submitted " + shortTime(mine->submittedAt) : std::string("not submitted")) << "\n";
   }
+}
+
+std::string ConsoleApp::extensionNote(const AssignmentView& v) {
+  const std::string original = "; original " + shortTime(v.assignment.deadline) + ")";
+  switch (v.extensionKind) {
+    case ExtensionKind::Class:      return " (extended for the whole class" + original;
+    case ExtensionKind::Individual: return " (your own extension" + original;
+    case ExtensionKind::None:       break;
+  }
+  return "";
 }
 
 void ConsoleApp::studentResult(const User& u) {
@@ -396,6 +427,8 @@ void ConsoleApp::studentMenu(const User& u) {
       const auto mine = s_.submissions.mySubmission(u, assignment);
       out_ << "Saved as version " << version << ".";
       if (mine && mine->daysLate > 0) out_ << " This is " << mine->daysLate << " day(s) late.";
+      if (mine && s_.penalty.isZeroMark(mine->daysLate))  // UC13 A3
+        out_ << " Work more than 3 days late receives a mark of zero.";
       out_ << "\n";
     }},
     {"My submitted versions", [&] {

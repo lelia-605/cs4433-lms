@@ -27,6 +27,8 @@ class ISubmissionRepository {
   virtual void saveModeratedMark(int submissionId, int rawMark, int moderatedBy) = 0;
   virtual void setReleasedAt(int submissionId, TimePoint at) = 0;
   virtual void setState(int submissionId, SubmissionState state) = 0;
+  // After an extension: new days late and Submitted/Late state for unmarked work (CR1).
+  virtual void updateLateness(int submissionId, int daysLate, SubmissionState state) = 0;
 };
 
 }  // namespace lms

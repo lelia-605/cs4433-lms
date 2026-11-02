@@ -24,4 +24,14 @@ struct Extension {
   std::string reason;
 };
 
+// A deadline extension for every student on one assignment (CR1, v1.1).
+// The assignment's own deadline is kept, so the original date is never lost.
+struct ClassExtension {
+  int assignmentId = 0;
+  TimePoint newDeadline;
+  int grantedBy = 0;
+  TimePoint grantedAt;
+  std::string reason;
+};
+
 }  // namespace lms

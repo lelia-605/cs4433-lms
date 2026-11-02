@@ -16,3 +16,17 @@ the deliberate changes made during implementation and why.
 | — | `ConsoleApp` reads from any stream | Lets the system tests drive whole sessions from a script. |
 
 FR23 and FR24 (Could) were not implemented, as planned in risk R12.
+
+## Release v1.1 (CR1: class-wide extensions)
+
+| Design element | Change |
+|---|---|
+| ERD / SQL schema | New table `class_extension` (one row per assignment: new deadline, granted by, granted at, reason). The assignment's own deadline is kept. |
+| Class diagram | New struct `ClassExtension`; new enum `ExtensionKind`; `AssignmentView` gains `extensionKind`; `ModerationItem` gains `classExtension`. |
+| `IAssignmentRepository` | `saveClassExtension`, `findClassExtension`. |
+| `ISubmissionRepository` | `updateLateness` (new days late and state for unmarked work). |
+| `AssignmentService` | `grantClassExtension`, `classDeadline`, `extensionKind`; `effectiveDeadline` now returns the latest of the assignment deadline, the class extension and the student's own extension (BR2 changed). |
+| `SubmissionService` | `refreshLateness` (recalculates unmarked work after an extension); `latestVersion` (lecturer reads the work before marking, defect D14). |
+| `ConsoleApp` | Lecturer option 10 "Extend the deadline for the whole class"; student and lecturer lists show the kind of extension and the original date; zero-mark warning for work more than 3 days late (defect D13). |
+| `prepareDatabase` | Adds the new table to a v1.0 database on start, keeping all data. |
+

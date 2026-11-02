@@ -1,6 +1,6 @@
 # Moderated LMS (CS4433)
 
-Offline C++17 console application with SQLite storage for a secondary school. Four roles (Administrator, Lecturer, Head of Department, Student), assignments and extensions, submissions with versions, marking with the late penalty, HoD moderation and release, and an append-only audit log. 103 automated tests.
+Offline C++17 console application with SQLite storage for a secondary school. Four roles (Administrator, Lecturer, Head of Department, Student), assignments and extensions, submissions with versions, marking with the late penalty, HoD moderation and release, and an append-only audit log. Release v1.1 adds class-wide deadline extensions (CR1). 117 automated tests.
 
 ## Requirements
 - A C++17 compiler (g++ 9+ or clang 10+), CMake 3.16+, pkg-config

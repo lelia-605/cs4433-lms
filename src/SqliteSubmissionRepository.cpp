@@ -157,4 +157,12 @@ void SqliteSubmissionRepository::setState(int submissionId, SubmissionState stat
   runUpdate(st);
 }
 
+void SqliteSubmissionRepository::updateLateness(int submissionId, int daysLate, SubmissionState state) {
+  auto st = db_.prepare("UPDATE submission SET days_late = ?, state = ? WHERE submission_id = ?");
+  st.bind(1, daysLate);
+  st.bind(2, stateToString(state));
+  st.bind(3, submissionId);
+  runUpdate(st);
+}
+
 }  // namespace lms

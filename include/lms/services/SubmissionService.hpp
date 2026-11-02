@@ -36,10 +36,19 @@ class SubmissionService {
 
   std::vector<SubmissionStatus> statusForAssignment(const User& lecturer, int assignmentId) const;
 
+  // After an extension, works out the days late again for every submission that is not
+  // marked yet, so nobody keeps a penalty for a deadline that has moved (CR1).
+  // Returns how many submissions changed. Marked work is never changed.
+  int refreshLateness(const User& lecturer, int assignmentId);
+  // The latest version of a student's work, so the lecturer can read it before marking (UC07 step 3).
+  std::optional<SubmissionVersion> latestVersion(const User& lecturer, int assignmentId,
+                                                 int studentId) const;
+
   static constexpr std::size_t kMaxContentLength = 10000;
 
  private:
   Assignment studentAssignment(const User& student, int assignmentId) const;
+  Assignment lecturersAssignment(const User& lecturer, int assignmentId) const;
 
   ISubmissionRepository& submissions_;
   IAssignmentRepository& assignments_;
