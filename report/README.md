@@ -6,7 +6,7 @@ Student: LELIA TS'OANELO, 202322605
 |---|---|
 | Final report (PDF) | [CS4433_Final_Report_202322605.pdf](CS4433_Final_Report_202322605.pdf) |
 | Final report (Word) | [CS4433_Final_Report_202322605.docx](CS4433_Final_Report_202322605.docx) |
-| Demo video | [Demo video](https://youtu.be/s54zzq71gZ4) |
+| Demo video | [Demo video (MP4)](CS4433_Demo_Video_202322605.mp4) · [YouTube](https://youtu.be/s54zzq71gZ4) |
 | Source code, release v1.1 | [tag v1.1](https://github.com/lelia-605/cs4433-lms/tree/v1.1) |
 | CI runs | [GitHub Actions](https://github.com/lelia-605/cs4433-lms/actions) |
 
